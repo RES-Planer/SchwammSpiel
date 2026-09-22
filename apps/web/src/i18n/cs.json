@@ -1,0 +1,9 @@
+{
+  "app.title": "Hra Houbařský region",
+  "app.language": "Jazyk",
+  "app.language.de": "Deutsch",
+  "app.language.cs": "Čeština",
+  "app.language.en": "English",
+  "app.mapLabel": "Mapa",
+  "map.attribution": "© přispěvatelé OpenStreetMap"
+}

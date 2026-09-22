@@ -4,5 +4,10 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint \"src/**/*.ts\" \"test/**/*.ts\"",
+    "test": "vitest run --dir test",
+    "build": "tsc -p tsconfig.json"
   }
 }

@@ -1,8 +1,28 @@
-# Starterpaket „Schwammregion-Game“ für GitHub Copilot
+# SchwammSpiel
 
-Inhalt: `PROMPTS.md` (13 Issue-Texte in Reihenfolge), `.github/copilot-instructions.md` (Dauerregeln für den Agenten),
-`docs/SPEC_hydrology.md` (Fachspezifikation inkl. Swale und Steinfeld), `data/hydrology_tables.json` (CN-, Rauheits-, Boden- und Regenwerte),
-`fixtures/thesis_b8_cases.json` (53 Rechenblätter aus Anhang B8/B9 der Masterarbeit Gehr als Sollwerte),
-`reference/nrcs_reference.py` (lauffähige Referenz; `python3 reference/nrcs_reference.py fixtures/thesis_b8_cases.json`).
+SchwammSpiel ist ein browserbasiertes Karten-Game für den dezentralen Wasserrückhalt in der Schwammregion.
+Das Projekt kombiniert einen deterministischen Rechenkern (`packages/engine`) mit einer statischen Web-App (`apps/web`).
 
-Stand der Referenz gegen die 51 konsistenten Blätter: Scheitel max. 3,2 %, Drosselabfluss max. 2,9 %, Einstauhöhe max. 6,2 % Abweichung.
+## Lokale Entwicklung
+
+Voraussetzungen: Node.js 22 und pnpm.
+
+```bash
+pnpm install
+pnpm dev
+```
+
+Wichtige Befehle:
+
+```bash
+pnpm lint
+pnpm test
+pnpm build
+```
+
+## Struktur
+
+- `packages/engine`: TypeScript-Rechenkern (ESM, keine Laufzeit-Abhängigkeiten)
+- `apps/web`: Vite + Preact + MapLibre-Weboberfläche
+- `fixtures/`: Test- und Referenzdaten
+- `docs/SPEC_hydrology.md`: Verbindliche hydrologische Fachspezifikation

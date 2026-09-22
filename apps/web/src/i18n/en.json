@@ -1,0 +1,9 @@
+{
+  "app.title": "Sponge Region Game",
+  "app.language": "Language",
+  "app.language.de": "Deutsch",
+  "app.language.cs": "Čeština",
+  "app.language.en": "English",
+  "app.mapLabel": "Map",
+  "map.attribution": "© OpenStreetMap contributors"
+}
