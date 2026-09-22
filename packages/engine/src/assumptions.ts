@@ -56,6 +56,31 @@ export const ASSUMPTION_A5: Assumption = {
   source: 'reference/nrcs_reference.py:18-19,91-93; docs/SPEC_hydrology.md Abschnitt 4',
 };
 
+export const ASSUMPTION_A6: Assumption = {
+  id: 'A6',
+  title: 'Abflusslose Rückhalteelemente im physical-Modus',
+  value:
+    'Elementzufluss q_e = a_e*(Q(t+t_e)-Q_Basis), vollständiger Rückhalt bis V_e voll; optionale Versickerung q_inf = kf*A_inf',
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 7',
+};
+
+export const ASSUMPTION_A7: Assumption = {
+  id: 'A7',
+  title: 'Swale bremst l_sheet',
+  value: 'Nach Schnittpunkt werden standardmäßig 30 m Fließweg als sheet modelliert',
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 8',
+};
+
+export const ASSUMPTION_A8: Assumption = {
+  id: 'A8',
+  title: 'Steinfeld-Standardwerte',
+  value: 's=2 m, d=0.4 m, z=0.8 m, n=0.30, d50=0.08 m, k_stone=8',
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9',
+};
+
 export const NRCS_DELTA_D_FROM_TC: HydrologyConstant = {
   id: 'C1',
   value: 0.133,
@@ -91,10 +116,76 @@ export const NRCS_UH_CUTOFF: HydrologyConstant = {
   source: 'reference/nrcs_reference.py:66,83; docs/SPEC_hydrology.md Abschnitt 4',
 };
 
+export const SWALE_L_SHEET_DEFAULT_M: HydrologyConstant = {
+  id: 'C6',
+  value: 30,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 8 (ANNAHME A7)',
+};
+
+export const STONEFIELD_H_OVERLOAD_LIMIT_M: HydrologyConstant = {
+  id: 'C7',
+  value: 0.03,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9',
+};
+
+export const STONEFIELD_K_DEFAULT: HydrologyConstant = {
+  id: 'C8',
+  value: 8,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9 (ANNAHME A8)',
+};
+
+export const STONEFIELD_K_OVERLOADED: HydrologyConstant = {
+  id: 'C9',
+  value: 25,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9',
+};
+
+export const STONEFIELD_SPACING_DEFAULT_M: HydrologyConstant = {
+  id: 'C10',
+  value: 2,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9 (ANNAHME A8)',
+};
+
+export const STONEFIELD_HOLE_DIAMETER_DEFAULT_M: HydrologyConstant = {
+  id: 'C11',
+  value: 0.4,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9 (ANNAHME A8)',
+};
+
+export const STONEFIELD_HOLE_DEPTH_DEFAULT_M: HydrologyConstant = {
+  id: 'C12',
+  value: 0.8,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9 (ANNAHME A8)',
+};
+
+export const STONEFIELD_POROSITY_DEFAULT: HydrologyConstant = {
+  id: 'C13',
+  value: 0.3,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9 (ANNAHME A8)',
+};
+
+export const STONEFIELD_D50_DEFAULT_M: HydrologyConstant = {
+  id: 'C14',
+  value: 0.08,
+  status: 'expert-estimate',
+  source: 'docs/SPEC_hydrology.md Abschnitt 9 (ANNAHME A8)',
+};
+
 export const assumptions = [
   ASSUMPTION_A1,
   ASSUMPTION_A2,
   ASSUMPTION_A3,
   ASSUMPTION_A4,
   ASSUMPTION_A5,
+  ASSUMPTION_A6,
+  ASSUMPTION_A7,
+  ASSUMPTION_A8,
 ] as const;
