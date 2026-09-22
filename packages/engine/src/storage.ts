@@ -121,20 +121,22 @@ export function routeStorage(
 
 export function sizeStorageForTarget(
   qInM3s: number[],
+  dDH: number,
   outlet: Outlet,
   hMaxM: number,
   targetQOutM3s: number,
 ): number {
+  if (dDH <= 0) {
+    throw new Error('dDH must be > 0');
+  }
   if (hMaxM <= 0) {
     throw new Error('hMaxM must be > 0');
   }
   if (targetQOutM3s <= 0) {
     throw new Error('targetQOutM3s must be > 0');
   }
-
-  const canPassWithoutStorage =
-    qInM3s.length === 0 || Math.max(...qInM3s) <= targetQOutM3s;
-  if (canPassWithoutStorage) {
+  const qZeroLimit = outlet.type === 'constant' ? Math.max(0, outlet.qM3s) : 0;
+  if (qInM3s.every((q) => q <= qZeroLimit && q <= targetQOutM3s)) {
     return 0;
   }
 
@@ -143,7 +145,7 @@ export function sizeStorageForTarget(
 
   const solve = (vMaxM3: number) => {
     const shape: StorageShape = { form: 'prism', baseAreaM2: vMaxM3 / hMaxM, hMaxM };
-    return routeStorage(qInM3s, 1 / 3600, shape, outlet);
+    return routeStorage(qInM3s, dDH, shape, outlet);
   };
 
   while (true) {

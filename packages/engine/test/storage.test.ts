@@ -1,9 +1,14 @@
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
-import { routeStorage, type Outlet, type StorageShape } from '../src/storage';
+import {
+  routeStorage,
+  sizeStorageForTarget,
+  type Outlet,
+  type StorageShape,
+} from '../src/storage';
 
 type FixtureStorage = {
   form: 'Fläche' | 'Mulde';
@@ -24,33 +29,12 @@ type Case = {
   consistent: boolean;
 };
 
-const root = resolve(__dirname, '../../..');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const fixturesPath = resolve(root, 'fixtures/thesis_b8_cases.json');
 const cases = JSON.parse(readFileSync(fixturesPath, 'utf8')).cases as Case[];
-
-function hydrographSeriesFromPython(caseId: string): { q: number[]; dD_h: number } {
-  const script = String.raw`
-import json
-import pathlib
-import sys
-sys.path.insert(0, str(pathlib.Path('${root.replace(/\\/g, '/')}') / 'reference'))
-from nrcs_reference import hydrograph
-
-obj = json.loads((pathlib.Path('${fixturesPath.replace(/\\/g, '/')}')).read_text(encoding='utf-8'))
-case = next(c for c in obj['cases'] if c['id'] == '${caseId}')
-r = hydrograph(case['area_ha'], case['cn'], case['tc_h'], case['p_mm'], case['duration_h'], case['ia_ratio'], case['prf'], case['rain_shape'], case['mq_l_s_km2'])
-print(json.dumps({'q': r['q'], 'dD_h': r['dD_h']}))
-`;
-  const out = spawnSync('python3', ['-c', script], {
-    encoding: 'utf8',
-  });
-
-  if (out.status !== 0) {
-    throw new Error(out.stderr || 'python3 hydrograph call failed');
-  }
-
-  return JSON.parse(out.stdout) as { q: number[]; dD_h: number };
-}
+const hydroByCase = JSON.parse(
+  readFileSync(resolve(root, 'fixtures/storage_hydrographs.json'), 'utf8'),
+) as Record<string, { q: number[]; dD_h: number }>;
 
 function mapStorage(s: FixtureStorage): { shape: StorageShape; outlet: Outlet } {
   const outlet: Outlet = {
@@ -87,7 +71,11 @@ describe('routeStorage fixture tolerance', () => {
   );
 
   test.each(fixtureCases)('$id matches q_out_max and h_reached tolerances', (c) => {
-    const hydro = hydrographSeriesFromPython(c.id);
+    const hydro = hydroByCase[c.id];
+    if (!hydro) {
+      throw new Error(`missing hydrograph fixture for ${c.id}`);
+    }
+
     const mapped = mapStorage(c.storage!);
     const result = routeStorage(hydro.q, hydro.dD_h, mapped.shape, mapped.outlet);
 
@@ -110,7 +98,11 @@ describe('routeStorage overflow mass balance', () => {
       throw new Error('required fixture case not found');
     }
 
-    const hydro = hydrographSeriesFromPython(baseCase.id);
+    const hydro = hydroByCase[baseCase.id];
+    if (!hydro) {
+      throw new Error(`missing hydrograph fixture for ${baseCase.id}`);
+    }
+
     const dt = hydro.dD_h * 3600;
     const mapped = mapStorage(baseCase.storage);
 
@@ -134,10 +126,17 @@ describe('routeStorage overflow mass balance', () => {
 
     const sumInM3 = hydro.q.reduce((acc, q) => acc + q * dt, 0);
     const sumOutM3 = result.qOutM3s.reduce((acc, q) => acc + q * dt, 0);
-    const finalStoredM3 =
-      sumInM3 - sumOutM3 >= 0 ? sumInM3 - sumOutM3 : 0;
+    const finalStoredM3 = sumInM3 - sumOutM3 >= 0 ? sumInM3 - sumOutM3 : 0;
 
     const balanceError = Math.abs(sumInM3 - sumOutM3 - finalStoredM3);
     expect(balanceError).toBeLessThanOrEqual(1e-6 * Math.max(1, sumInM3));
+  });
+});
+
+describe('sizeStorageForTarget', () => {
+  test('considers outlet cap for constant outlets', () => {
+    const qIn = [0.2, 0.2, 0.2];
+    const v = sizeStorageForTarget(qIn, 1 / 3600, { type: 'constant', qM3s: 0.1 }, 1, 0.2);
+    expect(v).toBeGreaterThan(0);
   });
 });
