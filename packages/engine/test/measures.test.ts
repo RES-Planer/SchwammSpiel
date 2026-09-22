@@ -4,6 +4,14 @@ import {
   ASSUMPTION_A6,
   ASSUMPTION_A7,
   ASSUMPTION_A8,
+  STONEFIELD_D50_DEFAULT_M,
+  STONEFIELD_HOLE_DEPTH_DEFAULT_M,
+  STONEFIELD_HOLE_DIAMETER_DEFAULT_M,
+  STONEFIELD_K_DEFAULT,
+  STONEFIELD_POROSITY_DEFAULT,
+  STONEFIELD_SPACING_DEFAULT_M,
+  SWALE_CONTOUR_DZ_WARNING_M,
+  SWALE_L_SHEET_DEFAULT_M,
   analyzeStonefieldHydraulics,
   applyRetentionElements,
   applyToFlowPath,
@@ -197,5 +205,13 @@ describe('assumptions A6-A8', () => {
     expect(ASSUMPTION_A6.status).toBe('expert-estimate');
     expect(ASSUMPTION_A7.status).toBe('expert-estimate');
     expect(ASSUMPTION_A8.status).toBe('expert-estimate');
+    expect(SWALE_L_SHEET_DEFAULT_M.value).toBe(30);
+    expect(SWALE_CONTOUR_DZ_WARNING_M.value).toBe(0.3);
+    expect(STONEFIELD_SPACING_DEFAULT_M.value).toBe(2);
+    expect(STONEFIELD_HOLE_DIAMETER_DEFAULT_M.value).toBe(0.4);
+    expect(STONEFIELD_HOLE_DEPTH_DEFAULT_M.value).toBe(0.8);
+    expect(STONEFIELD_POROSITY_DEFAULT.value).toBe(0.3);
+    expect(STONEFIELD_D50_DEFAULT_M.value).toBe(0.08);
+    expect(STONEFIELD_K_DEFAULT.value).toBe(8);
   });
 });

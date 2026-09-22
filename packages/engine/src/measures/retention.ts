@@ -24,7 +24,10 @@ export type RetentionElementResult = {
   retainedM3: number;
   infiltratedM3: number;
   tFullH: number | null;
+  warnings: RetentionWarningCode[];
 };
+
+export type RetentionWarningCode = 'missing-infiltration-data';
 
 export type RetentionResult = {
   qM3s: number[];
@@ -51,16 +54,19 @@ function interpolateAt(series: number[], dtH: number, tH: number): number {
   return loValue + (hiValue - loValue) * frac;
 }
 
-function meanKfMs(soilGroup: SoilGroup | undefined): number {
+function meanKfMs(soilGroup: SoilGroup | undefined): {
+  kfMs: number;
+  warning?: RetentionWarningCode;
+} {
   if (soilGroup === undefined) {
-    return 0;
+    return { kfMs: 0 };
   }
   if (soilGroup === 'A') {
-    return 0;
+    return { kfMs: 0, warning: 'missing-infiltration-data' };
   }
   const table = hydrologyTables.soil_infiltration_by_group[soilGroup];
   const [kfLo, kfHi] = table.kf_m_s;
-  return (kfLo + kfHi) / 2;
+  return { kfMs: (kfLo + kfHi) / 2 };
 }
 
 function applyPhysicalRetention(
@@ -71,8 +77,8 @@ function applyPhysicalRetention(
   infiltration: RetentionInfiltrationMode,
 ): RetentionResult {
   const dtS = dtH * 3600;
-  const retainedRatesPerElement: number[][] = [];
   const elementResults: RetentionElementResult[] = [];
+  let qCurrentM3s = [...qM3s];
 
   for (const element of elements) {
     assertFiniteNonNegative(`elements.${element.id}.volumeM3`, element.volumeM3);
@@ -85,7 +91,8 @@ function applyPhysicalRetention(
     const infAreaM2 = element.infAreaM2 ?? 0;
     assertFiniteNonNegative(`elements.${element.id}.infAreaM2`, infAreaM2);
 
-    const kfMs = infiltration === 'on' ? meanKfMs(element.soilGroup) : 0;
+    const kf = infiltration === 'on' ? meanKfMs(element.soilGroup) : { kfMs: 0 };
+    const kfMs = kf.kfMs;
     const qInfM3s = kfMs * infAreaM2;
 
     let storedM3 = 0;
@@ -94,9 +101,9 @@ function applyPhysicalRetention(
     let tFullH: number | null = null;
     const retainedRates: number[] = [];
 
-    for (let i = 0; i < qM3s.length; i += 1) {
+    for (let i = 0; i < qCurrentM3s.length; i += 1) {
       const tH = i * dtH;
-      const shiftedQ = interpolateAt(qM3s, dtH, tH + element.delayH);
+      const shiftedQ = interpolateAt(qCurrentM3s, dtH, tH + element.delayH);
       const qInElementM3s = Math.max(0, element.areaShare * (shiftedQ - baseFlowM3s));
       const inflowM3 = qInElementM3s * dtS;
 
@@ -117,35 +124,32 @@ function applyPhysicalRetention(
       retainedRates.push(retainedStepM3 / dtS);
     }
 
-    retainedRatesPerElement.push(retainedRates);
+    qCurrentM3s = qCurrentM3s.map((q, i) => {
+      const tH = i * dtH;
+      const reduction = interpolateAt(retainedRates, dtH, tH);
+      return Math.max(0, q - reduction);
+    });
+
     elementResults.push({
       id: element.id,
       retainedM3,
       infiltratedM3,
       tFullH,
+      warnings: kf.warning ? [kf.warning] : [],
     });
   }
 
-  const qNewM3s = qM3s.map((q, i) => {
-    const tH = i * dtH;
-    const reduction = retainedRatesPerElement.reduce((sum, retainedRates, index) => {
-      const delayH = elements[index]?.delayH ?? 0;
-      return sum + interpolateAt(retainedRates, dtH, tH - delayH);
-    }, 0);
-    return Math.max(0, q - reduction);
-  });
-
-  let qPeak = qNewM3s[0] ?? 0;
+  let qPeak = qCurrentM3s[0] ?? 0;
   let peakIndex = 0;
-  for (let i = 1; i < qNewM3s.length; i += 1) {
-    if ((qNewM3s[i] ?? 0) > qPeak) {
-      qPeak = qNewM3s[i] ?? 0;
+  for (let i = 1; i < qCurrentM3s.length; i += 1) {
+    if ((qCurrentM3s[i] ?? 0) > qPeak) {
+      qPeak = qCurrentM3s[i] ?? 0;
       peakIndex = i;
     }
   }
 
   return {
-    qM3s: qNewM3s,
+    qM3s: qCurrentM3s,
     tPeakH: peakIndex * dtH,
     elements: elementResults,
   };
@@ -165,6 +169,10 @@ export function applyRetentionElements(
     throw new Error('dtH must be a finite number > 0');
   }
   assertFiniteNonNegative('baseFlowM3s', baseFlowM3s);
+  const totalAreaShare = elements.reduce((sum, element) => sum + element.areaShare, 0);
+  if (totalAreaShare > 1 + 1e-9) {
+    throw new Error('sum of elements.areaShare must be <= 1');
+  }
 
   if (options.mode === 'thesis_triangle') {
     throw new NotImplementedError('mode thesis_triangle is not implemented yet (TODO(SPEC))');

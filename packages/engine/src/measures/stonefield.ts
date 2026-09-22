@@ -18,11 +18,11 @@ const SHIELDS_CRITICAL = 0.047;
 export type StonefieldWarningCode =
   | 'overloaded'
   | 'stones-unstable'
-  | 'low-infiltration-soil';
+  | 'low-infiltration-soil'
+  | 'missing-infiltration-data';
 
 export type StonefieldWarning = {
   code: StonefieldWarningCode;
-  message: string;
 };
 
 export type StonefieldGeometryInput = {
@@ -55,6 +55,7 @@ export type StonefieldHydraulicsResult = {
   vMs: number;
   qSpecificM2s: number;
   kUsed: number;
+  kFallbackOnOverload: number | null;
   overloaded: boolean;
   warnings: StonefieldWarning[];
 };
@@ -69,11 +70,14 @@ function flowDepthM(qSpecificM2s: number, k: number, slope: number): number {
   return (qSpecificM2s / (k * Math.sqrt(slope))) ** (3 / 5);
 }
 
-function meanKfMs(soilGroup: SoilGroup): number {
+function meanKfMs(soilGroup: SoilGroup): number | null {
+  // TODO(SPEC): A is in SoilGroup, but `soil_infiltration_by_group` currently lists only B/C/D.
+  // Keep this visible as warning output instead of silently inventing a table value.
   if (soilGroup === 'A') {
-    return 0;
+    return null;
   }
-  const values = hydrologyTables.soil_infiltration_by_group[soilGroup].kf_m_s;
+  const table = hydrologyTables.soil_infiltration_by_group[soilGroup];
+  const values = table.kf_m_s;
   return (values[0] + values[1]) / 2;
 }
 
@@ -99,12 +103,13 @@ export function stonefieldGeometry(input: StonefieldGeometryInput): StonefieldGe
   const aInfM2 = holeCount * (holeAreaM2 + holeMantleM2);
 
   const warnings: StonefieldWarning[] = [];
-  if (input.soilGroup === 'C' || input.soilGroup === 'D') {
+  if (input.soilGroup === 'A') {
+    warnings.push({ code: 'missing-infiltration-data' });
+  } else if (input.soilGroup === 'C' || input.soilGroup === 'D') {
     const kfMs = meanKfMs(input.soilGroup);
-    if (kfMs <= 1e-6) {
+    if (kfMs !== null && kfMs <= 1e-6) {
       warnings.push({
         code: 'low-infiltration-soil',
-        message: 'HBG C/D: geringe Versickerung, Wirkung vor allem über Fließzeitverlängerung',
       });
     }
   }
@@ -131,17 +136,15 @@ export function analyzeStonefieldHydraulics(
 
   const qSpecificM2s = input.qInMaxM3s / input.widthM;
 
-  let kUsed = kStone;
-  let hM = flowDepthM(qSpecificM2s, kUsed, input.slope);
+  const kUsed = kStone;
+  const hM = flowDepthM(qSpecificM2s, kUsed, input.slope);
   const overloaded = hM > STONEFIELD_H_OVERLOAD_LIMIT_M.value;
+  const kFallbackOnOverload = overloaded ? STONEFIELD_K_OVERLOADED.value : null;
   const warnings: StonefieldWarning[] = [];
 
   if (overloaded) {
-    kUsed = STONEFIELD_K_OVERLOADED.value;
-    hM = flowDepthM(qSpecificM2s, kUsed, input.slope);
     warnings.push({
       code: 'overloaded',
-      message: 'h > 0.03 m: Feld verbreitern',
     });
   }
 
@@ -150,7 +153,6 @@ export function analyzeStonefieldHydraulics(
   if (tau > tauCritical) {
     warnings.push({
       code: 'stones-unstable',
-      message: 'Steinlage instabil: Schubspannung über kritischem Wert',
     });
   }
 
@@ -159,6 +161,7 @@ export function analyzeStonefieldHydraulics(
     vMs: qSpecificM2s / hM,
     qSpecificM2s,
     kUsed,
+    kFallbackOnOverload,
     overloaded,
     warnings,
   };

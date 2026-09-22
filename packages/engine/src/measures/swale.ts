@@ -1,4 +1,4 @@
-import { SWALE_L_SHEET_DEFAULT_M } from '../assumptions';
+import { SWALE_CONTOUR_DZ_WARNING_M, SWALE_L_SHEET_DEFAULT_M } from '../assumptions';
 import type { FlowSegment } from '../flowPath';
 
 export type SwaleGeometryInput = {
@@ -22,7 +22,6 @@ export type SwaleWarningCode = 'not-contour-parallel';
 
 export type SwaleWarning = {
   code: SwaleWarningCode;
-  message: string;
 };
 
 function assertPositive(name: string, value: number): void {
@@ -68,17 +67,21 @@ export function validateSwaleContourAlignment(elevationProfileM: number[]): Swal
   const zStart = elevationProfileM[0] ?? 0;
   const zEnd = elevationProfileM[elevationProfileM.length - 1] ?? 0;
   const dzM = Math.abs(zEnd - zStart);
-  if (dzM <= 0.3) {
+  if (dzM <= SWALE_CONTOUR_DZ_WARNING_M.value) {
     return [];
   }
   return [
     {
       code: 'not-contour-parallel',
-      message: 'nicht höhenlinienparallel – wirkt als Graben',
     },
   ];
 }
 
+/**
+ * Replaces the overlap of [chainageM, chainageM + lSheetM] on the flow path by `sheet` segments.
+ * `chainageM` is measured from the upstream start of the provided segment list.
+ * Segments intersecting the window are split into up to three parts (before / sheet / after).
+ */
 export function applyToFlowPath(
   segments: FlowSegment[],
   chainageM: number,

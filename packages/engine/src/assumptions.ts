@@ -179,6 +179,13 @@ export const STONEFIELD_D50_DEFAULT_M: HydrologyConstant = {
   source: 'docs/SPEC_hydrology.md Abschnitt 9 (ANNAHME A8)',
 };
 
+export const SWALE_CONTOUR_DZ_WARNING_M: HydrologyConstant = {
+  id: 'C15',
+  value: 0.3,
+  status: 'thesis',
+  source: 'docs/SPEC_hydrology.md Abschnitt 8',
+};
+
 export const assumptions = [
   ASSUMPTION_A1,
   ASSUMPTION_A2,
