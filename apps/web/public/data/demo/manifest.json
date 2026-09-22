@@ -1,0 +1,220 @@
+{
+  "id": "demo",
+  "name": {
+    "de": "Synthetisches Tal",
+    "cs": "Syntetické údolí",
+    "en": "Synthetic valley"
+  },
+  "bounds": [
+    [
+      11.916,
+      49.934
+    ],
+    [
+      11.944,
+      49.955
+    ]
+  ],
+  "layers": [
+    {
+      "id": "hillshade",
+      "name": {
+        "de": "Schummerung",
+        "cs": "Stínovaný reliéf",
+        "en": "Hillshade"
+      },
+      "type": "image",
+      "layerType": "raster",
+      "path": "hillshade.svg",
+      "visibleByDefault": true,
+      "attribution": "Demo-Daten",
+      "coordinates": [
+        [
+          11.916,
+          49.955
+        ],
+        [
+          11.944,
+          49.955
+        ],
+        [
+          11.944,
+          49.934
+        ],
+        [
+          11.916,
+          49.934
+        ]
+      ],
+      "style": {
+        "paint": {
+          "raster-opacity": 0.45
+        }
+      },
+      "legend": {
+        "type": "raster",
+        "colorRamp": [
+          "#eff6ff",
+          "#4b5563"
+        ]
+      }
+    },
+    {
+      "id": "subcatchments",
+      "name": {
+        "de": "Teilgebiete",
+        "cs": "Dílčí povodí",
+        "en": "Subcatchments"
+      },
+      "type": "geojson",
+      "layerType": "fill",
+      "path": "subcatchments.geojson",
+      "visibleByDefault": true,
+      "attribution": "Demo-Daten",
+      "inspectable": true,
+      "style": {
+        "paint": {
+          "fill-color": "#60a5fa",
+          "fill-opacity": 0.28,
+          "fill-outline-color": "#1d4ed8"
+        }
+      },
+      "legend": {
+        "type": "fill",
+        "color": "#60a5fa"
+      }
+    },
+    {
+      "id": "flow-paths",
+      "name": {
+        "de": "Fließwege",
+        "cs": "Odtokové dráhy",
+        "en": "Flow paths"
+      },
+      "type": "geojson",
+      "layerType": "line",
+      "path": "flow_paths.geojson",
+      "visibleByDefault": true,
+      "attribution": "Demo-Daten",
+      "style": {
+        "layout": {
+          "line-cap": "round",
+          "line-join": "round"
+        },
+        "paint": {
+          "line-color": "#0f766e",
+          "line-opacity": 0.85,
+          "line-width": [
+            "interpolate",
+            [
+              "linear"
+            ],
+            [
+              "get",
+              "accumulation"
+            ],
+            10,
+            2,
+            45,
+            8
+          ]
+        }
+      },
+      "legend": {
+        "type": "line",
+        "color": "#0f766e"
+      }
+    },
+    {
+      "id": "sinks",
+      "name": {
+        "de": "Senken",
+        "cs": "Deprese",
+        "en": "Depressions"
+      },
+      "type": "geojson",
+      "layerType": "circle",
+      "path": "sinks.geojson",
+      "visibleByDefault": true,
+      "attribution": "Demo-Daten",
+      "style": {
+        "paint": {
+          "circle-radius": 5,
+          "circle-color": "#7c3aed",
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#ffffff"
+        }
+      },
+      "legend": {
+        "type": "circle",
+        "color": "#7c3aed"
+      }
+    },
+    {
+      "id": "cn-zones",
+      "name": {
+        "de": "Landnutzung × Bodengruppe",
+        "cs": "Využití půdy × hydrologická skupina",
+        "en": "Land use × soil group"
+      },
+      "type": "geojson",
+      "layerType": "fill",
+      "path": "cn_zones.geojson",
+      "visibleByDefault": false,
+      "attribution": "Demo-Daten",
+      "style": {
+        "paint": {
+          "fill-color": [
+            "interpolate",
+            [
+              "linear"
+            ],
+            [
+              "get",
+              "cn"
+            ],
+            64,
+            "#bbf7d0",
+            74,
+            "#fef08a",
+            84,
+            "#fdba74",
+            92,
+            "#f87171"
+          ],
+          "fill-opacity": 0.42,
+          "fill-outline-color": "#854d0e"
+        }
+      },
+      "legend": {
+        "type": "fill",
+        "color": "#f59e0b"
+      }
+    },
+    {
+      "id": "parcels",
+      "name": {
+        "de": "Flurstücke",
+        "cs": "Parcely",
+        "en": "Parcels"
+      },
+      "type": "geojson",
+      "layerType": "line",
+      "path": "parcels.geojson",
+      "visibleByDefault": false,
+      "attribution": "Demo-Daten",
+      "minzoom": 16,
+      "style": {
+        "paint": {
+          "line-color": "#64748b",
+          "line-width": 1,
+          "line-opacity": 0.75
+        }
+      },
+      "legend": {
+        "type": "line",
+        "color": "#64748b"
+      }
+    }
+  ]
+}

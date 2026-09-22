@@ -5,5 +5,21 @@
   "app.language.cs": "Čeština",
   "app.language.en": "English",
   "app.mapLabel": "Karte",
-  "map.attribution": "© OpenStreetMap-Mitwirkende"
+  "app.scenarioNote": "Szenarienvergleich, keine Prognose",
+  "map.attribution": "© OpenStreetMap-Mitwirkende",
+  "map.layers": "Ebenen",
+  "map.legend": "Legende",
+  "map.legend.empty": "Keine Ebene eingeblendet.",
+  "map.loading": "Gebietsdaten werden geladen …",
+  "map.loadError": "Gebietsdaten konnten nicht geladen werden.",
+  "map.details.title": "Teilgebiet",
+  "map.details.empty": "Tippen oder klicken Sie auf ein Teilgebiet, um Details zu sehen.",
+  "map.details.name": "Name",
+  "map.details.areaHa": "Fläche",
+  "map.details.cn": "CN",
+  "map.details.tcH": "tc",
+  "map.details.landuseShares": "Landnutzungsanteile",
+  "map.landuse.forest": "Wald",
+  "map.landuse.grassland": "Grünland",
+  "map.landuse.arable": "Acker"
 }

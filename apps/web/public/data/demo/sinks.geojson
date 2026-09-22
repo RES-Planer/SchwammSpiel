@@ -1,0 +1,47 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sink-1",
+        "depthM": 0.7
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.9285,
+          49.9476
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sink-2",
+        "depthM": 0.5
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.9345,
+          49.9479
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "sink-3",
+        "depthM": 0.9
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.9317,
+          49.9397
+        ]
+      }
+    }
+  ]
+}

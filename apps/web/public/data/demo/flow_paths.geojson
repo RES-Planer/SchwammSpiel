@@ -1,0 +1,77 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fp-1",
+        "accumulation": 16
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            11.924,
+            49.953
+          ],
+          [
+            11.927,
+            49.948
+          ],
+          [
+            11.93,
+            49.944
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fp-2",
+        "accumulation": 24
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            11.936,
+            49.953
+          ],
+          [
+            11.935,
+            49.948
+          ],
+          [
+            11.932,
+            49.945
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "fp-3",
+        "accumulation": 42
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            11.93,
+            49.944
+          ],
+          [
+            11.931,
+            49.941
+          ],
+          [
+            11.932,
+            49.937
+          ]
+        ]
+      }
+    }
+  ]
+}
