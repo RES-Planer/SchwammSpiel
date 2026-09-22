@@ -29,7 +29,7 @@ describe('travelTime (velocity method)', () => {
     const segments = [{ type: 'pipe' as const, k: 1, lengthM: 1440, slope: 1, rHydM: 1 }];
     const result = travelTime(segments, { tcFactor: 2.1 });
 
-    expect(result.perSegment[0]?.tMin).toBeCloseTo(24, 12);
+    expect(result.perSegment[0]?.tMin).toBeCloseTo(50.4, 12);
     expect(result.tcH).toBeCloseTo(0.84, 12);
   });
 
@@ -63,6 +63,26 @@ describe('travelTime (velocity method)', () => {
 
     expect(bySpecific.perSegment[0]?.vMs).toBeCloseTo(byNeffDuration.perSegment[0]?.vMs ?? 0, 10);
     expect(bySpecific.perSegment[0]?.tMin).toBeCloseTo(byNeffDuration.perSegment[0]?.tMin ?? 0, 10);
+  });
+
+  test('rejects mixed segment/options runoff inputs for trapezoid segments', () => {
+    expect(() =>
+      travelTime(
+        [
+          {
+            type: 'trapezoid',
+            lengthM: 80,
+            slope: 0.01,
+            k: 32,
+            bottomWidthM: 0.5,
+            sideSlopeM: 2,
+            areaHa: 12,
+            neffMm: 9,
+          },
+        ],
+        { durationH: 5 },
+      ),
+    ).toThrow(/both neffMm and durationH/);
   });
 
   test('uses table-backed hydraulic radius defaults for pipe and stonefield segments', () => {

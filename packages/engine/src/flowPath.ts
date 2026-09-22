@@ -166,17 +166,39 @@ function resolveQSpecificLsHa(segment: TrapezoidFlowSegment, options: TravelTime
     return options.qSpecificLsHa;
   }
 
-  const neffMm = segment.neffMm ?? options.neffMm;
-  const durationH = segment.durationH ?? options.durationH;
-  if (neffMm === undefined || durationH === undefined) {
+  const hasSegmentNeff = segment.neffMm !== undefined;
+  const hasSegmentDuration = segment.durationH !== undefined;
+  const hasOptionNeff = options.neffMm !== undefined;
+  const hasOptionDuration = options.durationH !== undefined;
+
+  if (hasSegmentNeff || hasSegmentDuration) {
+    if (!(hasSegmentNeff && hasSegmentDuration)) {
+      throw new Error('trapezoid segment requires both neffMm and durationH when using segment-local runoff inputs');
+    }
+    const neffMm = segment.neffMm!;
+    const durationH = segment.durationH!;
+    assertPositive('segment.neffMm', neffMm);
+    assertPositive('segment.durationH', durationH);
+    return (neffMm / durationH) * (10 / 3.6);
+  }
+
+  if (hasOptionNeff || hasOptionDuration) {
+    if (!(hasOptionNeff && hasOptionDuration)) {
+      throw new Error('travelTime options require both neffMm and durationH when using shared runoff inputs');
+    }
+    const neffMm = options.neffMm!;
+    const durationH = options.durationH!;
+    assertPositive('options.neffMm', neffMm);
+    assertPositive('options.durationH', durationH);
+    return (neffMm / durationH) * (10 / 3.6);
+  }
+
+  if (!hasSegmentNeff && !hasSegmentDuration && !hasOptionNeff && !hasOptionDuration) {
     throw new Error(
       'trapezoid segment requires qSpecificLsHa or both neffMm and durationH (segment or options)',
     );
   }
-
-  assertPositive('neffMm', neffMm);
-  assertPositive('durationH', durationH);
-  return (neffMm / durationH) * (10 / 3.6);
+  throw new Error('Invalid trapezoid runoff-specific discharge input');
 }
 
 function trapezoidVelocityMs(segment: TrapezoidFlowSegment, options: TravelTimeOptions): number {
@@ -251,14 +273,19 @@ export function travelTime(segments: FlowSegment[], options: TravelTimeOptions =
     return { vMs, tMin, share: 0 };
   });
 
-  const totalMin = perSegment.reduce((sum, segment) => sum + segment.tMin, 0);
-  const perSegmentWithShare = perSegment.map((segment) => ({
+  const totalBaseMin = perSegment.reduce((sum, segment) => sum + segment.tMin, 0);
+  const perSegmentScaled = perSegment.map((segment) => ({
     ...segment,
-    share: totalMin > 0 ? segment.tMin / totalMin : 0,
+    tMin: segment.tMin * tcFactor,
+  }));
+  const totalScaledMin = totalBaseMin * tcFactor;
+  const perSegmentWithShare = perSegmentScaled.map((segment) => ({
+    ...segment,
+    share: totalScaledMin > 0 ? segment.tMin / totalScaledMin : 0,
   }));
 
   return {
-    tcH: (tcFactor * totalMin) / 60,
+    tcH: totalScaledMin / 60,
     perSegment: perSegmentWithShare,
   };
 }
