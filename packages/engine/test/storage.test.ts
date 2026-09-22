@@ -37,7 +37,7 @@ type Case = {
   prf: number;
   rain_shape: HydrographInput['rainShape'];
   mq_l_s_km2: number;
-  expected: { q_out_max_m3s: number; h_reached_m: number };
+  expected: { q_out_max_m3s: number; h_reached_m: number; v_used_m3?: number };
   storage?: FixtureStorage;
   overflow_case?: boolean;
   consistent: boolean;
@@ -196,6 +196,11 @@ describe('sizeStorageForTarget', () => {
 
     expect(vM3).toBeGreaterThanOrEqual(1400);
     expect(vM3).toBeLessThanOrEqual(1700);
+    if (c.expected.v_used_m3 === undefined) {
+      throw new Error('required fixture expected.v_used_m3 not found');
+    }
+    const vRel = Math.abs(vM3 / c.expected.v_used_m3 - 1);
+    expect(vRel).toBeLessThanOrEqual(0.15);
 
     const routed = routeStorage(
       hydro.qM3s,
