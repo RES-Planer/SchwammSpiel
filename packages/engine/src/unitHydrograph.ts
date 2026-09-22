@@ -1,3 +1,5 @@
+import { NRCS_PRF_REFERENCE_RATIO } from './assumptions';
+
 const LANCZOS_G = 7;
 const LANCZOS_COEFFICIENTS = [
   0.9999999999998099,
@@ -69,4 +71,3 @@ export function gammaShape(prf: number): number {
 
   return (lo + hi) / 2;
 }
-import { NRCS_PRF_REFERENCE_RATIO } from './assumptions';
