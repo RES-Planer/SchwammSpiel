@@ -82,6 +82,8 @@ const concentrated = hydrologyTables.roughness_strickler_concentrated.values;
 const sheetValues = Object.values(hydrologyTables.roughness_strickler_sheet_flow.values);
 const MAX_TRAPEZOID_DEPTH_M = 100;
 const TRAPEZOID_BISECTION_ITERATIONS = 80;
+const PIPE_RADIUS_FALLBACK_M = hydrologyTables.hydraulic_radius_defaults_m.rills;
+const STONEFIELD_RADIUS_FALLBACK_M = hydrologyTables.hydraulic_radius_defaults_m.sheet_flow;
 
 /**
  * Table-derived Standardwerte für Fließwegsegmente nach SPEC Abschnitt 5.
@@ -92,9 +94,13 @@ export const flowPathStandards = {
     sheet: hydrologyTables.hydraulic_radius_defaults_m.sheet_flow,
     rill: hydrologyTables.hydraulic_radius_defaults_m.rills,
     hollow: hydrologyTables.hydraulic_radius_defaults_m.swale_hollow,
-    pipe: hydrologyTables.hydraulic_radius_defaults_m.rills,
-    stonefield: hydrologyTables.hydraulic_radius_defaults_m.sheet_flow,
   },
+  hydraulicRadiusFallbackM: {
+    // TODO(SPEC): eigene Tabellenwerte für pipe/stonefield ergänzen, sobald verfügbar.
+    pipe: PIPE_RADIUS_FALLBACK_M,
+    stonefield: STONEFIELD_RADIUS_FALLBACK_M,
+  },
+  missingHydraulicRadiusDefaults: ['pipe', 'stonefield'],
   kRange: {
     sheet: aggregateRange(sheetValues, 'roughness_strickler_sheet_flow.values'),
     rill: toRange(
@@ -141,9 +147,9 @@ function resolveHydraulicRadiusM(segment: NonTrapezoidFlowSegment): number {
     return flowPathStandards.hydraulicRadiusM.hollow;
   }
   if (segment.type === 'pipe') {
-    return flowPathStandards.hydraulicRadiusM.pipe;
+    return flowPathStandards.hydraulicRadiusFallbackM.pipe;
   }
-  return flowPathStandards.hydraulicRadiusM.stonefield;
+  return flowPathStandards.hydraulicRadiusFallbackM.stonefield;
 }
 
 function assertPositive(name: string, value: number): void {

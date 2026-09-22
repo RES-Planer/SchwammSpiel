@@ -73,9 +73,9 @@ describe('travelTime (velocity method)', () => {
     const result = travelTime(segments);
 
     const expectedPipeV =
-      95 * flowPathStandards.hydraulicRadiusM.pipe ** (2 / 3) * Math.sqrt(0.0625);
+      95 * flowPathStandards.hydraulicRadiusFallbackM.pipe ** (2 / 3) * Math.sqrt(0.0625);
     const expectedStonefieldV =
-      25 * flowPathStandards.hydraulicRadiusM.stonefield ** (2 / 3) * Math.sqrt(0.04);
+      25 * flowPathStandards.hydraulicRadiusFallbackM.stonefield ** (2 / 3) * Math.sqrt(0.04);
 
     expect(result.perSegment[0]?.vMs).toBeCloseTo(expectedPipeV, 12);
     expect(result.perSegment[1]?.vMs).toBeCloseTo(expectedStonefieldV, 12);
