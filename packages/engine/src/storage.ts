@@ -70,6 +70,7 @@ export function routeStorage(
 ): RouteStorageResult {
   const { vMaxM3, levelFromVolume } = shapeState(shape);
   const dtS = dDH * 3600;
+  const eps = 1e-12;
   if (dtS <= 0) {
     throw new Error('dDH must be > 0');
   }
@@ -94,10 +95,8 @@ export function routeStorage(
     if (vM3 > vMaxM3) {
       spillQ = (vM3 - vMaxM3) / dtS;
       vM3 = vMaxM3;
-      if (tFullH === null) {
-        tFullH = (i + 1) * dDH;
-      }
-    } else if (vM3 >= vMaxM3 && tFullH === null) {
+    }
+    if (tFullH === null && vM3 >= vMaxM3 - eps) {
       tFullH = (i + 1) * dDH;
     }
 
@@ -135,16 +134,15 @@ export function sizeStorageForTarget(
   if (targetQOutM3s <= 0) {
     throw new Error('targetQOutM3s must be > 0');
   }
-  if (
-    outlet.type === 'constant' &&
-    outlet.qM3s > targetQOutM3s &&
-    qInM3s.some((q) => q > targetQOutM3s)
-  ) {
-    throw new Error('Infeasible target: constant outlet exceeds targetQOutM3s');
-  }
   const qZeroLimit = outlet.type === 'constant' ? Math.max(0, outlet.qM3s) : 0;
   if (qInM3s.every((q) => q <= qZeroLimit && q <= targetQOutM3s)) {
     return 0;
+  }
+  if (
+    outlet.type === 'constant' &&
+    outlet.qM3s > targetQOutM3s
+  ) {
+    throw new Error('Infeasible target: constant outlet exceeds targetQOutM3s');
   }
 
   let loV = 0;

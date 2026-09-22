@@ -148,8 +148,20 @@ describe('routeStorage overflow mass balance', () => {
 describe('sizeStorageForTarget', () => {
   test('considers outlet cap for constant outlets', () => {
     const qIn = [0.2, 0.2, 0.2];
-    const v = sizeStorageForTarget(qIn, 1 / 3600, { type: 'constant', qM3s: 0.1 }, 1, 0.2);
+    const dtH = 1 / 3600;
+    const target = 0.2;
+    const outlet: Outlet = { type: 'constant', qM3s: 0.1 };
+    const v = sizeStorageForTarget(qIn, dtH, outlet, 1, target);
     expect(v).toBeGreaterThan(0);
+
+    const routed = routeStorage(
+      qIn,
+      dtH,
+      { form: 'prism', baseAreaM2: v / 1, hMaxM: 1 },
+      outlet,
+    );
+    expect(routed.spillM3).toBeLessThanOrEqual(1e-9);
+    expect(routed.qOutMaxM3s).toBeLessThanOrEqual(target + 1e-9);
   });
 
   test('throws for infeasible target with constant outlet', () => {
