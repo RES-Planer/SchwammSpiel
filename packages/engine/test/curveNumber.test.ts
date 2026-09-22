@@ -1,0 +1,215 @@
+import { describe, expect, test } from 'vitest';
+
+import { aggregateCn, cnForPatch, computeHydrograph } from '../src/index';
+import { effectiveRainMm } from '../src/runoff';
+
+describe('cnForPatch', () => {
+  test('matches SPEC check value for maize C in March with mulch and contour tillage', () => {
+    const result = cnForPatch({
+      landUse: 'Mais',
+      soilGroup: 'C',
+      month: 'Mar',
+      mulchCoverFraction: 0.3,
+      tillage: 'contour_parallel',
+    });
+
+    expect(result.cn).toBeCloseTo(82.1, 1);
+    expect(result.steps.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test('matches SPEC check value for grassland B in March with contour tillage', () => {
+    const result = cnForPatch({
+      landUse: 'Grünland',
+      soilGroup: 'B',
+      month: 'Mar',
+      tillage: 'contour_parallel',
+    });
+
+    expect(result.cn).toBeCloseTo(78.0, 1);
+  });
+
+  test('matches SPEC check value for clover grass B in March with contour tillage', () => {
+    const result = cnForPatch({
+      landUse: 'Kleegras',
+      soilGroup: 'B',
+      month: 'Mar',
+      tillage: 'contour_parallel',
+    });
+
+    expect(result.cn).toBeCloseTo(58.2, 1);
+  });
+
+  test('warns for soil group A missing formula and returns unadjusted value', () => {
+    const result = cnForPatch({
+      landUse: 'Mais',
+      soilGroup: 'A',
+      month: 'Mar',
+      tillage: 'downslope',
+    });
+
+    expect(result.cn).toBe(94);
+    expect(result.warnings.some((warning) => warning.code === 'missing-formula')).toBe(true);
+  });
+
+
+  test('rejects mulch cover fractions above 1', () => {
+    expect(() =>
+      cnForPatch({
+        landUse: 'Mais',
+        soilGroup: 'C',
+        month: 'Mar',
+        mulchCoverFraction: 1.1,
+        tillage: 'downslope',
+      }),
+    ).toThrow(/mulchCoverFraction/);
+  });
+
+  test('warns for terraced tillage missing formula and keeps CN unchanged at tillage step', () => {
+    const result = cnForPatch({
+      landUse: 'Mais',
+      soilGroup: 'C',
+      month: 'Mar',
+      tillage: 'terraced',
+    });
+
+    expect(result.cn).toBe(94);
+    expect(result.warnings.some((warning) => warning.code === 'missing-formula')).toBe(true);
+  });
+});
+
+describe('aggregateCn', () => {
+  const areasHa = [1.7, 3, 5.4, 4.4, 4.6, 4.5, 1.7, 2.5];
+
+  test('matches 1abc area-weighted CN for baseline and measure list from SPEC source', () => {
+    const baselineCn = [92.0, 94.0, 84.2, 93.0, 78.0, 48.3, 80.6, 60.0];
+    const measureCn = [92.0, 82.1, 84.2, 93.0, 58.2, 48.3, 80.6, 60.0];
+
+    const baseline = aggregateCn(
+      areasHa.map((areaHa, i) => ({ areaHa, cn: baselineCn[i] })),
+      'area_weighted',
+    );
+    const measure = aggregateCn(
+      areasHa.map((areaHa, i) => ({ areaHa, cn: measureCn[i] })),
+      'area_weighted',
+    );
+
+    expect(baseline.mode).toBe('area_weighted');
+    expect(measure.mode).toBe('area_weighted');
+
+    if (baseline.mode !== 'area_weighted' || measure.mode !== 'area_weighted') {
+      throw new Error('unexpected aggregation mode');
+    }
+
+    expect(baseline.cn).toBeCloseTo(77.9, 1);
+    expect(measure.cn).toBeCloseTo(73.3, 1);
+  });
+
+
+  test('runoff_weighted requires iaRatio at aggregation time', () => {
+    expect(() =>
+      aggregateCn(
+        [
+          { areaHa: 1.7, cn: 92 },
+          { areaHa: 3.0, cn: 82.1 },
+        ],
+        'runoff_weighted',
+      ),
+    ).toThrow(/iaRatio/);
+  });
+
+
+  test('runoff_weighted with multiple patches equals area-weighted per-patch effective rainfall', () => {
+    const iaRatio = 0.165;
+    const patches = [
+      { areaHa: 1.7, cn: 92 },
+      { areaHa: 3.0, cn: 82.1 },
+      { areaHa: 5.4, cn: 84.2 },
+    ];
+
+    const weighted = aggregateCn(patches, 'runoff_weighted', { iaRatio });
+    if (weighted.mode !== 'runoff_weighted') {
+      throw new Error('unexpected aggregation mode');
+    }
+
+    const totalArea = patches.reduce((sum, patch) => sum + patch.areaHa, 0);
+    const rainfallDepthsMm = [10, 40, 80];
+
+    for (const pCumMm of rainfallDepthsMm) {
+      const expected = patches.reduce((sum, patch) => {
+        const weight = patch.areaHa / totalArea;
+        return sum + weight * effectiveRainMm(pCumMm, patch.cn, iaRatio);
+      }, 0);
+      expect(weighted.neffMm(pCumMm)).toBeCloseTo(expected, 12);
+    }
+  });
+
+
+  test('runoff_weighted rejects invalid iaRatio values', () => {
+    expect(() =>
+      aggregateCn(
+        [
+          { areaHa: 1.7, cn: 92 },
+          { areaHa: 3.0, cn: 82.1 },
+        ],
+        'runoff_weighted',
+        { iaRatio: 1.2 },
+      ),
+    ).toThrow(/iaRatio/);
+  });
+
+
+  test('runoff_weighted neff rejects negative cumulative rainfall', () => {
+    const weighted = aggregateCn(
+      [
+        { areaHa: 1.7, cn: 92 },
+        { areaHa: 3.0, cn: 82.1 },
+      ],
+      'runoff_weighted',
+      { iaRatio: 0.165 },
+    );
+    if (weighted.mode !== 'runoff_weighted') {
+      throw new Error('unexpected aggregation mode');
+    }
+    expect(() => weighted.neffMm(-1)).toThrow(/pCumMm/);
+  });
+
+  test('runoff_weighted neff produces the same hydrograph as direct CN for a single patch', () => {
+    const weighted = aggregateCn([{ areaHa: 4.7, cn: 82.1 }], 'runoff_weighted', {
+      iaRatio: 0.165,
+    });
+
+    if (weighted.mode !== 'runoff_weighted') {
+      throw new Error('unexpected aggregation mode');
+    }
+
+    const resultWithNeff = computeHydrograph({
+      areaHa: 4.7,
+      neffMm: weighted.neffMm,
+      tcH: 0.84,
+      pMm: 69.9,
+      durationH: 18,
+      iaRatio: 0.165,
+      prf: 484,
+      rainShape: 'mittenbetont',
+      mqLsKm2: 15.53,
+    });
+
+    const resultWithCn = computeHydrograph({
+      areaHa: 4.7,
+      cn: 82.1,
+      tcH: 0.84,
+      pMm: 69.9,
+      durationH: 18,
+      iaRatio: 0.165,
+      prf: 484,
+      rainShape: 'mittenbetont',
+      mqLsKm2: 15.53,
+    });
+
+    expect(resultWithNeff.neffMm).toBeCloseTo(resultWithCn.neffMm, 12);
+    expect(resultWithNeff.qMaxM3s).toBeCloseTo(resultWithCn.qMaxM3s, 12);
+    expect(resultWithNeff.qM3s).toEqual(resultWithCn.qM3s);
+    expect(Number.isNaN(resultWithNeff.sMm)).toBe(true);
+    expect(Number.isNaN(resultWithNeff.iaMm)).toBe(true);
+  });
+});
