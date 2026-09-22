@@ -1,0 +1,446 @@
+{
+ "source": "Masterarbeit Gehr (THD 2025), Anhang B6; Werte vereinfacht nach Seibert & Auerswald (2020), Hochwasserminderung im laendlichen Raum (Open Access, Springer)",
+ "cn_low_seasonality_by_soil_group": {
+  "Offene Wasserflächen": {
+   "A": 100,
+   "B": 100,
+   "C": 100,
+   "D": 100
+  },
+  "Unbewachsener Boden": {
+   "A": 77,
+   "B": 86,
+   "C": 91,
+   "D": 94
+  },
+  "Reihenfrüchte (hohe Abflussneigung)": {
+   "A": 72,
+   "B": 81,
+   "C": 88,
+   "D": 91
+  },
+  "Reihenfrüchte (niedrige Abflussneigung)": {
+   "A": 67,
+   "B": 78,
+   "C": 85,
+   "D": 89
+  },
+  "Getreide (hohe Abflussneigung)": {
+   "A": 65,
+   "B": 76,
+   "C": 84,
+   "D": 88
+  },
+  "Getreide (niedrige Abflussneigung)": {
+   "A": 63,
+   "B": 75,
+   "C": 83,
+   "D": 87
+  },
+  "Kleegras/Luzerne (hohe Abflussneigung)": {
+   "A": 25,
+   "B": 47,
+   "C": 64,
+   "D": 72
+  },
+  "Kleegras/Luzerne (niedrige Abflussneigung)": {
+   "A": 24,
+   "B": 43,
+   "C": 61,
+   "D": 70
+  },
+  "Weide": {
+   "A": 39,
+   "B": 61,
+   "C": 74,
+   "D": 80
+  },
+  "Wiese": {
+   "A": 30,
+   "B": 58,
+   "C": 71,
+   "D": 78
+  },
+  "Wald (hohe Abflussneigung)": {
+   "A": 45,
+   "B": 66,
+   "C": 77,
+   "D": 83
+  },
+  "Wald (mittlere Abflussneigung)": {
+   "A": 36,
+   "B": 60,
+   "C": 73,
+   "D": 79
+  },
+  "Wald (niedrige Abflussneigung)": {
+   "A": 25,
+   "B": 55,
+   "C": 70,
+   "D": 77
+  },
+  "Wein (terrassiert)": {
+   "A": 64,
+   "B": 73,
+   "C": 79,
+   "D": 82
+  },
+  "Dörfl. Siedlung, Außensiedlung": {
+   "A": 59,
+   "B": 74,
+   "C": 82,
+   "D": 86
+  },
+  "Städtische Siedlung": {
+   "A": 61,
+   "B": 75,
+   "C": 83,
+   "D": 87
+  },
+  "Sport-/Golfplätze": {
+   "A": 39,
+   "B": 61,
+   "C": 74,
+   "D": 80
+  },
+  "Industrie/Gewerbegebiete/Straßen": {
+   "A": 89,
+   "B": 92,
+   "C": 94,
+   "D": 95
+  },
+  "Wege, befestigt": {
+   "A": 74,
+   "B": 84,
+   "C": 90,
+   "D": 92
+  },
+  "Wege, wassergebunden": {
+   "A": 72,
+   "B": 82,
+   "C": 87,
+   "D": 89
+  },
+  "Abbauland": {
+   "A": 77,
+   "B": 86,
+   "C": 91,
+   "D": 94
+  }
+ },
+ "cn_monthly_soil_group_C": {
+  "Sommergetreide": {
+   "Jan": 95,
+   "Feb": 95,
+   "Mar": 95,
+   "Apr": 80,
+   "May": 46,
+   "Jun": 44,
+   "Jul": 44,
+   "Aug": 44,
+   "Sep": 87,
+   "Oct": 91,
+   "Nov": 95,
+   "Dec": 95
+  },
+  "Wintergetreide": {
+   "Jan": 95,
+   "Feb": 88,
+   "Mar": 66,
+   "Apr": 54,
+   "May": 44,
+   "Jun": 44,
+   "Jul": 70,
+   "Aug": 80,
+   "Sep": 87,
+   "Oct": 91,
+   "Nov": 95,
+   "Dec": 95
+  },
+  "Mais": {
+   "Jan": 94,
+   "Feb": 94,
+   "Mar": 94,
+   "Apr": 90,
+   "May": 88,
+   "Jun": 73,
+   "Jul": 50,
+   "Aug": 43,
+   "Sep": 62,
+   "Oct": 85,
+   "Nov": 90,
+   "Dec": 94
+  },
+  "Zuckerrüben": {
+   "Jan": 95,
+   "Feb": 94,
+   "Mar": 94,
+   "Apr": 88,
+   "May": 86,
+   "Jun": 62,
+   "Jul": 50,
+   "Aug": 43,
+   "Sep": 41,
+   "Oct": 70,
+   "Nov": 91,
+   "Dec": 95
+  },
+  "Kartoffeln": {
+   "Jan": 95,
+   "Feb": 94,
+   "Mar": 94,
+   "Apr": 88,
+   "May": 86,
+   "Jun": 62,
+   "Jul": 45,
+   "Aug": 43,
+   "Sep": 43,
+   "Oct": 70,
+   "Nov": 91,
+   "Dec": 95
+  },
+  "Kleegras": {
+   "Jan": 82,
+   "Feb": 82,
+   "Mar": 73,
+   "Apr": 62,
+   "May": 62,
+   "Jun": 62,
+   "Jul": 62,
+   "Aug": 62,
+   "Sep": 62,
+   "Oct": 62,
+   "Nov": 62,
+   "Dec": 71
+  },
+  "Grünland": {
+   "Jan": 87,
+   "Feb": 87,
+   "Mar": 87,
+   "Apr": 79,
+   "May": 72,
+   "Jun": 72,
+   "Jul": 72,
+   "Aug": 72,
+   "Sep": 72,
+   "Oct": 79,
+   "Nov": 87,
+   "Dec": 87
+  },
+  "Wald": {
+   "Jan": 88,
+   "Feb": 88,
+   "Mar": 88,
+   "Apr": 80,
+   "May": 73,
+   "Jun": 73,
+   "Jul": 73,
+   "Aug": 73,
+   "Sep": 73,
+   "Oct": 80,
+   "Nov": 88,
+   "Dec": 88
+  },
+  "Siedlung": {
+   "Jan": 93,
+   "Feb": 93,
+   "Mar": 93,
+   "Apr": 87,
+   "May": 82,
+   "Jun": 82,
+   "Jul": 82,
+   "Aug": 82,
+   "Sep": 82,
+   "Oct": 87,
+   "Nov": 93,
+   "Dec": 93
+  },
+  "Verkehr": {
+   "Jan": 98,
+   "Feb": 98,
+   "Mar": 98,
+   "Apr": 96,
+   "May": 94,
+   "Jun": 94,
+   "Jul": 94,
+   "Aug": 94,
+   "Sep": 94,
+   "Oct": 96,
+   "Nov": 98,
+   "Dec": 98
+  }
+ },
+ "adjustments": {
+  "soil_group_from_C": {
+   "B": {
+    "formula": "CN_B = 1.46 * CN_C - 46.4",
+    "status": "aus 4 Wertepaaren des Anhangs exakt rueckgerechnet (95->92.3, 87->80.62, 73->60.18, 66->49.96)"
+   },
+   "C": {
+    "formula": "CN_C"
+   },
+   "D": {
+    "formula": "CN_D = 0.6967 * CN_C + 30.33",
+    "status": "SCHAETZUNG aus nur einem Wertepaar (94->95.82) plus Fixpunkt (100|100) – mit Seibert & Auerswald 2020 S. 67 pruefen"
+   },
+   "A": {
+    "formula": null,
+    "status": "UNBEKANNT – aus Seibert & Auerswald 2020 S. 67 ergaenzen; im Goldbachgebiet kommt A nicht vor"
+   }
+  },
+  "mulch_direct_seeding": {
+   "formula": "CN_C = 85 - 0.47 * cover_fraction (cover_fraction >= 0.30); gilt nur, wenn kleiner als Tabellenwert des Monats",
+   "example": "cover 0.30 -> 84.86",
+   "note": "danach Bodengruppen- und Bewirtschaftungsanpassung anwenden"
+  },
+  "tillage_direction": {
+   "downslope": 1.0,
+   "contour_parallel": 0.9675,
+   "terraced": null,
+   "status": "Faktor 0.9675 aus 6 Wertepaaren rueckgerechnet (z. B. 95->92.0, 84.86->82.1); terrassiert: TODO Seibert S. 73"
+  }
+ },
+ "roughness_strickler_sheet_flow": {
+  "note": "Schichtabfluss, Fliesstiefe < 3 cm; k in m^(1/3)/s",
+  "values": {
+   "Asphalt/Beton/verschlaemmt": 91,
+   "Wassergebundene Decke": 50,
+   "Acker Bedeckung <5 %": 17,
+   "Acker 5-30 %": 12,
+   "Acker 30-70 %": 5,
+   "Acker >70 %": 3,
+   "Querbearbeitung <5 %": 12,
+   "Querbearbeitung 5-30 %": 8,
+   "Querbearbeitung 30-70 %": 4,
+   "Querbearbeitung >70 %": 2,
+   "Pflugfurche (frisch...abgesetzt)": [
+    2,
+    10
+   ],
+   "Gruenland (Sommer...Winter)": [
+    4,
+    12
+   ],
+   "Sukzession/Hochstauden": [
+    5,
+    10
+   ],
+   "Wald (dichte...spaerliche Streu)": [
+    2,
+    6
+   ]
+  }
+ },
+ "roughness_strickler_concentrated": {
+  "note": "Fliesstiefe > 5 cm",
+  "values": {
+   "Erosionsrinne Acker (kastenfoermig)": 25,
+   "Begruente Tiefenlinie (Grassed Waterway)": [
+    9,
+    29
+   ],
+   "Wiese dicht": [
+    25,
+    45
+   ],
+   "Acker Deckung >30 %": [
+    16,
+    25
+   ],
+   "Waelder (Dickung...Hochwald)": [
+    12,
+    30
+   ],
+   "Bruchwald": [
+    3,
+    6
+   ],
+   "Hochstaudenflur": [
+    9,
+    29
+   ],
+   "Grobe Steinschuettung ohne Bewuchs": [
+    20,
+    30
+   ],
+   "Raue Sohlrampe": [
+    10,
+    20
+   ],
+   "Graben gleichfoermig, teils Bewuchs": [
+    30,
+    35
+   ],
+   "Forstweg wassergebunden": [
+    45,
+    50
+   ],
+   "PVC-Rohr": [
+    90,
+    100
+   ]
+  }
+ },
+ "hydraulic_radius_defaults_m": {
+  "note": "Werte wie im Beispiel 1abc des Anhangs; vollstaendige Tabelle (Seibert Abb. 5.7) TODO",
+  "sheet_flow": 0.002,
+  "rills": 0.04,
+  "swale_hollow": 0.1
+ },
+ "soil_infiltration_by_group": {
+  "note": "Masterarbeit Tab. 3; DWA-A 138: gezielte Versickerung erst ab kf >= 1e-6 m/s sinnvoll",
+  "B": {
+   "mm_per_h": [
+    4,
+    8
+   ],
+   "kf_m_s": [
+    1.1e-06,
+    2.22e-06
+   ]
+  },
+  "C": {
+   "mm_per_h": [
+    1,
+    4
+   ],
+   "kf_m_s": [
+    2.78e-07,
+    1.1e-06
+   ]
+  },
+  "D": {
+   "mm_per_h": [
+    0,
+    1
+   ],
+   "kf_m_s": [
+    0,
+    2.78e-07
+   ]
+  }
+ },
+ "design_rain_goldbach": {
+  "note": "KOSTRA-DWD-2020, flaechengewichtet, aus der Masterarbeit; weitere Stufen aus Anhang B3 ergaenzen",
+  "events": [
+   {
+    "id": "T20_D18h",
+    "return_period_a": 20,
+    "duration_h": 18,
+    "p_mm": 69.9
+   },
+   {
+    "id": "T20_D4h",
+    "return_period_a": 20,
+    "duration_h": 4,
+    "p_mm": 48.8
+   },
+   {
+    "id": "T100_D4h",
+    "return_period_a": 100,
+    "duration_h": 4,
+    "p_mm": 66.5
+   }
+  ]
+ }
+}
