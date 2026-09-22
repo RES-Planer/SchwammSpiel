@@ -11,9 +11,8 @@ import { gammaShape } from './unitHydrograph';
 
 export type { RainShape } from './rain';
 
-export type HydrographInput = {
+export type HydrographBaseInput = {
   areaHa: number;
-  cn: number;
   tcH: number;
   pMm: number;
   durationH: number;
@@ -23,7 +22,12 @@ export type HydrographInput = {
   mqLsKm2: number;
 };
 
-export type HydrographResult = HydrographInput & {
+export type HydrographInput =
+  | (HydrographBaseInput & { cn: number })
+  | (HydrographBaseInput & { neffMm: (pCumMm: number) => number });
+
+export type HydrographResult = HydrographBaseInput & {
+  cn: number | null;
   qM3s: number[];
   dtH: number;
   tpH: number;
@@ -42,7 +46,10 @@ export function computeHydrograph(input: HydrographInput): HydrographResult {
 
   const cumulativeEffectiveMm = Array.from({ length: n + 1 }, (_, i) => {
     const pCumMm = input.pMm * cumulativeRainFraction(i / n, input.rainShape);
-    return effectiveRainMm(pCumMm, input.cn, input.iaRatio);
+    if ('cn' in input) {
+      return effectiveRainMm(pCumMm, input.cn, input.iaRatio);
+    }
+    return input.neffMm(pCumMm);
   });
 
   const effectiveIncrementMm = Array.from({ length: n }, (_, i) => {
@@ -88,14 +95,24 @@ export function computeHydrograph(input: HydrographInput): HydrographResult {
     }
   }
 
+  const cn = 'cn' in input ? input.cn : null;
+
   return {
-    ...input,
+    areaHa: input.areaHa,
+    tcH: input.tcH,
+    pMm: input.pMm,
+    durationH: input.durationH,
+    iaRatio: input.iaRatio,
+    prf: input.prf,
+    rainShape: input.rainShape,
+    mqLsKm2: input.mqLsKm2,
+    cn,
     qM3s,
     dtH,
     tpH,
     neffMm,
-    sMm: storageMmFromCn(input.cn),
-    iaMm: initialAbstractionMm(input.cn, input.iaRatio),
+    sMm: cn === null ? Number.NaN : storageMmFromCn(cn),
+    iaMm: cn === null ? Number.NaN : initialAbstractionMm(cn, input.iaRatio),
     baseFlowM3s,
     qMaxM3s,
     tPeakH: iPeak * dtH,
