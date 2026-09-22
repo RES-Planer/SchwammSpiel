@@ -82,7 +82,28 @@ describe('travelTime (velocity method)', () => {
         ],
         { durationH: 5 },
       ),
-    ).toThrow(/both neffMm and durationH/);
+    ).toThrow(/either on the segment or in options/);
+  });
+
+  test('rejects trapezoid runoff inputs when both segment and options provide them', () => {
+    expect(() =>
+      travelTime(
+        [
+          {
+            type: 'trapezoid',
+            lengthM: 80,
+            slope: 0.01,
+            k: 32,
+            bottomWidthM: 0.5,
+            sideSlopeM: 2,
+            areaHa: 12,
+            neffMm: 9,
+            durationH: 5,
+          },
+        ],
+        { neffMm: 9, durationH: 5 },
+      ),
+    ).toThrow(/either on the segment or in options/);
   });
 
   test('uses table-backed hydraulic radius defaults for pipe and stonefield segments', () => {

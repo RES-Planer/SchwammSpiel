@@ -170,8 +170,16 @@ function resolveQSpecificLsHa(segment: TrapezoidFlowSegment, options: TravelTime
   const hasSegmentDuration = segment.durationH !== undefined;
   const hasOptionNeff = options.neffMm !== undefined;
   const hasOptionDuration = options.durationH !== undefined;
+  const hasAnySegmentInputs = hasSegmentNeff || hasSegmentDuration;
+  const hasAnyOptionInputs = hasOptionNeff || hasOptionDuration;
 
-  if (hasSegmentNeff || hasSegmentDuration) {
+  if (hasAnySegmentInputs && hasAnyOptionInputs) {
+    throw new Error(
+      'Provide trapezoid runoff inputs either on the segment or in options, not both',
+    );
+  }
+
+  if (hasAnySegmentInputs) {
     if (!(hasSegmentNeff && hasSegmentDuration)) {
       throw new Error('trapezoid segment requires both neffMm and durationH when using segment-local runoff inputs');
     }
@@ -182,7 +190,7 @@ function resolveQSpecificLsHa(segment: TrapezoidFlowSegment, options: TravelTime
     return (neffMm / durationH) * (10 / 3.6);
   }
 
-  if (hasOptionNeff || hasOptionDuration) {
+  if (hasAnyOptionInputs) {
     if (!(hasOptionNeff && hasOptionDuration)) {
       throw new Error('travelTime options require both neffMm and durationH when using shared runoff inputs');
     }
@@ -193,7 +201,7 @@ function resolveQSpecificLsHa(segment: TrapezoidFlowSegment, options: TravelTime
     return (neffMm / durationH) * (10 / 3.6);
   }
 
-  if (!hasSegmentNeff && !hasSegmentDuration && !hasOptionNeff && !hasOptionDuration) {
+  if (!hasAnySegmentInputs && !hasAnyOptionInputs) {
     throw new Error(
       'trapezoid segment requires qSpecificLsHa or both neffMm and durationH (segment or options)',
     );
