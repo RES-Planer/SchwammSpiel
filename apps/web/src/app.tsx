@@ -74,6 +74,7 @@ export function App() {
 
   useEffect(() => {
     document.title = t(locale, 'app.title');
+    document.documentElement.lang = locale;
   }, [locale]);
 
   return (
