@@ -57,6 +57,12 @@ function assertNonNegative(name: string, value: number): void {
   }
 }
 
+function assertCurveNumber(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    throw new Error(`${name} must be a finite number in [0, 100]`);
+  }
+}
+
 function assertFraction(name: string, value: number): void {
   if (!Number.isFinite(value) || value < 0 || value > 1) {
     throw new Error(`${name} must be a finite number in [0, 1]`);
@@ -214,7 +220,7 @@ export function aggregateCn(
 
   for (const patch of patches) {
     assertNonNegative('patch.areaHa', patch.areaHa);
-    assertNonNegative('patch.cn', patch.cn);
+    assertCurveNumber('patch.cn', patch.cn);
   }
 
   const totalAreaHa = patches.reduce((sum, patch) => sum + patch.areaHa, 0);

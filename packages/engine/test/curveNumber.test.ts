@@ -116,21 +116,16 @@ describe('aggregateCn', () => {
     ).toThrow(/iaRatio/);
   });
 
-  test('runoff_weighted neff function is accepted by computeHydrograph', () => {
-    const weighted = aggregateCn(
-      [
-        { areaHa: 1.7, cn: 92 },
-        { areaHa: 3.0, cn: 82.1 },
-      ],
-      'runoff_weighted',
-      { iaRatio: 0.165 },
-    );
+  test('runoff_weighted neff produces the same hydrograph as direct CN for a single patch', () => {
+    const weighted = aggregateCn([{ areaHa: 4.7, cn: 82.1 }], 'runoff_weighted', {
+      iaRatio: 0.165,
+    });
 
     if (weighted.mode !== 'runoff_weighted') {
       throw new Error('unexpected aggregation mode');
     }
 
-    const result = computeHydrograph({
+    const resultWithNeff = computeHydrograph({
       areaHa: 4.7,
       neffMm: weighted.neffMm,
       tcH: 0.84,
@@ -142,8 +137,22 @@ describe('aggregateCn', () => {
       mqLsKm2: 15.53,
     });
 
-    expect(result.neffMm).toBeGreaterThan(0);
-    expect(Number.isNaN(result.sMm)).toBe(true);
-    expect(Number.isNaN(result.iaMm)).toBe(true);
+    const resultWithCn = computeHydrograph({
+      areaHa: 4.7,
+      cn: 82.1,
+      tcH: 0.84,
+      pMm: 69.9,
+      durationH: 18,
+      iaRatio: 0.165,
+      prf: 484,
+      rainShape: 'mittenbetont',
+      mqLsKm2: 15.53,
+    });
+
+    expect(resultWithNeff.neffMm).toBeCloseTo(resultWithCn.neffMm, 12);
+    expect(resultWithNeff.qMaxM3s).toBeCloseTo(resultWithCn.qMaxM3s, 12);
+    expect(resultWithNeff.qM3s).toEqual(resultWithCn.qM3s);
+    expect(Number.isNaN(resultWithNeff.sMm)).toBe(true);
+    expect(Number.isNaN(resultWithNeff.iaMm)).toBe(true);
   });
 });
