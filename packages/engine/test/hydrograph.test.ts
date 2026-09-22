@@ -78,4 +78,30 @@ describe('computeHydrograph fixtures', () => {
 
     expect(relError).toBeLessThanOrEqual(0.005);
   });
+
+  test('quantizes duration to rounded dt steps for rainfall discretization', () => {
+    const baseInput: HydrographInput = {
+      areaHa: 27.8,
+      cn: 77.9,
+      tcH: 0.84,
+      pMm: 69.9,
+      durationH: 17.95,
+      iaRatio: 0.165,
+      prf: 484,
+      rainShape: 'mittenbetont',
+      mqLsKm2: 15.53,
+    };
+
+    const rounded = computeHydrograph(baseInput);
+    const quantizedDurationH =
+      Math.round(baseInput.durationH / rounded.dtH) * rounded.dtH;
+    const quantized = computeHydrograph({
+      ...baseInput,
+      durationH: quantizedDurationH,
+    });
+
+    expect(quantizedDurationH).not.toBe(baseInput.durationH);
+    expect(rounded.qM3s).toEqual(quantized.qM3s);
+    expect(rounded.neffMm).toBeCloseTo(quantized.neffMm, 12);
+  });
 });

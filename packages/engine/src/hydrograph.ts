@@ -77,6 +77,7 @@ export function computeHydrograph(input: HydrographInput): HydrographResult {
 
   const baseFlowM3s = (input.mqLsKm2 * (input.areaHa / 100)) / 1000;
   const qM3s = qDirectM3s.map((q) => q + baseFlowM3s);
+  const neffMm = cumulativeEffectiveMm[cumulativeEffectiveMm.length - 1] ?? 0;
 
   let qMaxM3s = qM3s[0] ?? 0;
   let iPeak = 0;
@@ -92,7 +93,7 @@ export function computeHydrograph(input: HydrographInput): HydrographResult {
     qM3s,
     dtH,
     tpH,
-    neffMm: cumulativeEffectiveMm[cumulativeEffectiveMm.length - 1],
+    neffMm,
     sMm: storageMmFromCn(input.cn),
     iaMm: initialAbstractionMm(input.cn, input.iaRatio),
     baseFlowM3s,
