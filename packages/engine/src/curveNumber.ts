@@ -238,6 +238,7 @@ export function aggregateCn(
   if (iaRatio === undefined) {
     throw new Error('runoff_weighted aggregation requires options.iaRatio');
   }
+  assertFraction('iaRatio', iaRatio);
 
   return {
     mode,

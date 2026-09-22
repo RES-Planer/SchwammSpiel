@@ -143,6 +143,20 @@ describe('aggregateCn', () => {
     }
   });
 
+
+  test('runoff_weighted rejects invalid iaRatio values', () => {
+    expect(() =>
+      aggregateCn(
+        [
+          { areaHa: 1.7, cn: 92 },
+          { areaHa: 3.0, cn: 82.1 },
+        ],
+        'runoff_weighted',
+        { iaRatio: 1.2 },
+      ),
+    ).toThrow(/iaRatio/);
+  });
+
   test('runoff_weighted neff produces the same hydrograph as direct CN for a single patch', () => {
     const weighted = aggregateCn([{ areaHa: 4.7, cn: 82.1 }], 'runoff_weighted', {
       iaRatio: 0.165,
