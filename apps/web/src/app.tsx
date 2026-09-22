@@ -96,7 +96,6 @@ export function App() {
         id="map"
         aria-label={t(locale, 'app.mapLabel')}
         role="region"
-        tabIndex={0}
       />
     </main>
   );
