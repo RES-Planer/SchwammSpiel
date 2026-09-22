@@ -157,6 +157,22 @@ describe('aggregateCn', () => {
     ).toThrow(/iaRatio/);
   });
 
+
+  test('runoff_weighted neff rejects negative cumulative rainfall', () => {
+    const weighted = aggregateCn(
+      [
+        { areaHa: 1.7, cn: 92 },
+        { areaHa: 3.0, cn: 82.1 },
+      ],
+      'runoff_weighted',
+      { iaRatio: 0.165 },
+    );
+    if (weighted.mode !== 'runoff_weighted') {
+      throw new Error('unexpected aggregation mode');
+    }
+    expect(() => weighted.neffMm(-1)).toThrow(/pCumMm/);
+  });
+
   test('runoff_weighted neff produces the same hydrograph as direct CN for a single patch', () => {
     const weighted = aggregateCn([{ areaHa: 4.7, cn: 82.1 }], 'runoff_weighted', {
       iaRatio: 0.165,

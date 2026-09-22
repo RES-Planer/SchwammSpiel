@@ -243,6 +243,7 @@ export function aggregateCn(
   return {
     mode,
     neffMm: (pCumMm: number) => {
+      assertNonNegative('pCumMm', pCumMm);
       return patches.reduce((sum, patch) => {
         const areaWeight = patch.areaHa / totalAreaHa;
         return sum + areaWeight * effectiveRainMm(pCumMm, patch.cn, iaRatio);
