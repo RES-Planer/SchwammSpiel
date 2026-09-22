@@ -90,7 +90,7 @@ describe('routeStorage fixture tolerance', () => {
 });
 
 describe('routeStorage overflow mass balance', () => {
-  test('overflow happens and mass balance closes when vMax is halved', () => {
+  test('overflow happens when fixture storage volume is halved', () => {
     const baseCase = cases.find(
       (c) => c.id === 'T20_D18h_1abc_CN_mSp' && c.storage && c.overflow_case === false,
     );
@@ -103,7 +103,6 @@ describe('routeStorage overflow mass balance', () => {
       throw new Error(`missing hydrograph fixture for ${baseCase.id}`);
     }
 
-    const dt = hydro.dD_h * 3600;
     const mapped = mapStorage(baseCase.storage);
 
     const halvedShape: StorageShape =
@@ -123,13 +122,26 @@ describe('routeStorage overflow mass balance', () => {
     const result = routeStorage(hydro.q, hydro.dD_h, halvedShape, mapped.outlet);
 
     expect(result.spillM3).toBeGreaterThan(0);
+  });
 
-    const sumInM3 = hydro.q.reduce((acc, q) => acc + q * dt, 0);
-    const sumOutM3 = result.qOutM3s.reduce((acc, q) => acc + q * dt, 0);
-    const finalStoredM3 = sumInM3 - sumOutM3 >= 0 ? sumInM3 - sumOutM3 : 0;
+  test('mass balance closes in a halved-volume overflow setup', () => {
+    const dtH = 1 / 3600;
+    const dtS = 1;
+    const qIn = [1, 1, 0];
+    const result = routeStorage(
+      qIn,
+      dtH,
+      { form: 'prism', baseAreaM2: 0.5, hMaxM: 1 },
+      { type: 'constant', qM3s: 0 },
+    );
 
-    const balanceError = Math.abs(sumInM3 - sumOutM3 - finalStoredM3);
-    expect(balanceError).toBeLessThanOrEqual(1e-6 * Math.max(1, sumInM3));
+    const sumInM3 = qIn.reduce((acc, q) => acc + q * dtS, 0);
+    const sumOutM3 = result.qOutM3s.reduce((acc, q) => acc + q * dtS, 0);
+    const finalStoredM3Expected = 0.5;
+    const balanceError = Math.abs(sumInM3 - sumOutM3 - finalStoredM3Expected);
+
+    expect(result.spillM3).toBeCloseTo(1.5, 12);
+    expect(balanceError).toBeLessThanOrEqual(1e-12);
   });
 });
 
@@ -138,5 +150,11 @@ describe('sizeStorageForTarget', () => {
     const qIn = [0.2, 0.2, 0.2];
     const v = sizeStorageForTarget(qIn, 1 / 3600, { type: 'constant', qM3s: 0.1 }, 1, 0.2);
     expect(v).toBeGreaterThan(0);
+  });
+
+  test('throws for infeasible target with constant outlet', () => {
+    expect(() =>
+      sizeStorageForTarget([0.2, 0.05], 1 / 3600, { type: 'constant', qM3s: 0.15 }, 1, 0.1),
+    ).toThrow(/Infeasible target/);
   });
 });

@@ -135,6 +135,13 @@ export function sizeStorageForTarget(
   if (targetQOutM3s <= 0) {
     throw new Error('targetQOutM3s must be > 0');
   }
+  if (
+    outlet.type === 'constant' &&
+    outlet.qM3s > targetQOutM3s &&
+    qInM3s.some((q) => q > targetQOutM3s)
+  ) {
+    throw new Error('Infeasible target: constant outlet exceeds targetQOutM3s');
+  }
   const qZeroLimit = outlet.type === 'constant' ? Math.max(0, outlet.qM3s) : 0;
   if (qInM3s.every((q) => q <= qZeroLimit && q <= targetQOutM3s)) {
     return 0;
