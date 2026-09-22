@@ -76,9 +76,9 @@ export function computeHydrograph(input: HydrographInput): HydrographResult {
   const baseFlowM3s = (input.mqLsKm2 * (input.areaHa / 100)) / 1000;
   const qM3s = qDirectM3s.map((q) => q + baseFlowM3s);
 
-  let qMaxM3s = 0;
+  let qMaxM3s = qM3s[0] ?? 0;
   let iPeak = 0;
-  for (let i = 0; i < qM3s.length; i += 1) {
+  for (let i = 1; i < qM3s.length; i += 1) {
     if (qM3s[i] > qMaxM3s) {
       qMaxM3s = qM3s[i];
       iPeak = i;

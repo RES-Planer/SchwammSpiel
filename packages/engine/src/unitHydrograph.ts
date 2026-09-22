@@ -36,19 +36,34 @@ export function logGamma(z: number): number {
 }
 
 export function gammaShape(prf: number): number {
+  if (!Number.isFinite(prf) || prf <= 0) {
+    throw new Error('prf must be > 0');
+  }
+
   const target = NRCS_PRF_REFERENCE_RATIO.value / prf;
   const f = (m: number) =>
     Math.exp(m + logGamma(m + 1) - (m + 1) * Math.log(m)) - target;
 
   let lo = 0.05;
   let hi = 30;
+  let fLo = f(lo);
+  const fHi = f(hi);
+
+  if (!Number.isFinite(fLo) || !Number.isFinite(fHi) || fLo * fHi > 0) {
+    throw new Error(`gammaShape root is not bracketed for prf=${prf}`);
+  }
 
   for (let i = 0; i < 200; i += 1) {
     const mid = (lo + hi) / 2;
-    if (f(lo) * f(mid) <= 0) {
+    const fMid = f(mid);
+    if (!Number.isFinite(fMid)) {
+      throw new Error(`gammaShape failed to evaluate for prf=${prf}`);
+    }
+    if (fLo * fMid <= 0) {
       hi = mid;
     } else {
       lo = mid;
+      fLo = fMid;
     }
   }
 
