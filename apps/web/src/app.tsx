@@ -7,6 +7,8 @@ import './app.css';
 export function App() {
   const [locale, setLocale] = useState<Locale>('de');
   const mapElementRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
+  const attributionControlRef = useRef<maplibregl.AttributionControl | null>(null);
 
   useEffect(() => {
     const mapElement = mapElementRef.current;
@@ -23,7 +25,6 @@ export function App() {
             type: 'raster',
             tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: t('de', 'map.attribution'),
           },
         },
         layers: [
@@ -36,12 +37,33 @@ export function App() {
       },
       center: [11.93, 49.945],
       zoom: 13,
+      attributionControl: false,
     });
+    mapRef.current = map;
 
     return () => {
+      mapRef.current = null;
       map.remove();
     };
   }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) {
+      return;
+    }
+
+    if (attributionControlRef.current) {
+      map.removeControl(attributionControlRef.current);
+    }
+
+    const control = new maplibregl.AttributionControl({
+      customAttribution: t(locale, 'map.attribution'),
+    });
+
+    map.addControl(control);
+    attributionControlRef.current = control;
+  }, [locale]);
 
   useEffect(() => {
     document.title = t(locale, 'app.title');

@@ -2,6 +2,7 @@
   "name": "schwammspiel",
   "private": true,
   "type": "module",
+  "repository": "github:RES-Planer/SchwammSpiel",
   "packageManager": "pnpm@9.12.2",
   "scripts": {
     "lint": "pnpm -r lint",
