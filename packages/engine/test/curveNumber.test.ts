@@ -50,6 +50,19 @@ describe('cnForPatch', () => {
     expect(result.warnings.some((warning) => warning.code === 'missing-formula')).toBe(true);
   });
 
+
+  test('rejects mulch cover fractions above 1', () => {
+    expect(() =>
+      cnForPatch({
+        landUse: 'Mais',
+        soilGroup: 'C',
+        month: 'Mar',
+        mulchCoverFraction: 1.1,
+        tillage: 'downslope',
+      }),
+    ).toThrow(/mulchCoverFraction/);
+  });
+
   test('warns for terraced tillage missing formula and keeps CN unchanged at tillage step', () => {
     const result = cnForPatch({
       landUse: 'Mais',
@@ -88,6 +101,19 @@ describe('aggregateCn', () => {
 
     expect(baseline.cn).toBeCloseTo(77.9, 1);
     expect(measure.cn).toBeCloseTo(73.3, 1);
+  });
+
+
+  test('runoff_weighted requires iaRatio at aggregation time', () => {
+    expect(() =>
+      aggregateCn(
+        [
+          { areaHa: 1.7, cn: 92 },
+          { areaHa: 3.0, cn: 82.1 },
+        ],
+        'runoff_weighted',
+      ),
+    ).toThrow(/iaRatio/);
   });
 
   test('runoff_weighted neff function is accepted by computeHydrograph', () => {

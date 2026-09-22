@@ -57,6 +57,12 @@ function assertNonNegative(name: string, value: number): void {
   }
 }
 
+function assertFraction(name: string, value: number): void {
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new Error(`${name} must be a finite number in [0, 1]`);
+  }
+}
+
 function applySoilGroupFormula(formula: string, cnC: number): number {
   if (formula.trim() === 'CN_C') {
     return cnC;
@@ -115,7 +121,7 @@ export function cnForPatch(input: CnForPatchInput): CnForPatchResult {
     steps.push({ step: 'base', beforeCn: cn, afterCn: cn, note: `monthly table value (${input.month}) in soil group C` });
 
     if (input.mulchCoverFraction !== undefined) {
-      assertNonNegative('mulchCoverFraction', input.mulchCoverFraction);
+      assertFraction('mulchCoverFraction', input.mulchCoverFraction);
       const beforeCn = cn;
       if (input.mulchCoverFraction >= 0.3) {
         cn = mulchAdjustedCn(cn, input.mulchCoverFraction);
@@ -222,14 +228,14 @@ export function aggregateCn(
     return { mode, cn };
   }
 
+  const iaRatio = options?.iaRatio;
+  if (iaRatio === undefined) {
+    throw new Error('runoff_weighted aggregation requires options.iaRatio');
+  }
+
   return {
     mode,
     neffMm: (pCumMm: number) => {
-      const iaRatio = options?.iaRatio;
-      if (iaRatio === undefined) {
-        throw new Error('runoff_weighted aggregation requires options.iaRatio');
-      }
-
       return patches.reduce((sum, patch) => {
         const areaWeight = patch.areaHa / totalAreaHa;
         return sum + areaWeight * effectiveRainMm(pCumMm, patch.cn, iaRatio);
