@@ -80,7 +80,13 @@ function aggregateRange(entries: unknown[], path: string): KRange {
 
 const concentrated = hydrologyTables.roughness_strickler_concentrated.values;
 const sheetValues = Object.values(hydrologyTables.roughness_strickler_sheet_flow.values);
+const MAX_TRAPEZOID_DEPTH_M = 100;
+const TRAPEZOID_BISECTION_ITERATIONS = 80;
 
+/**
+ * Table-derived Standardwerte für Fließwegsegmente nach SPEC Abschnitt 5.
+ * Diese Zuordnung bildet Segmenttypen auf Tabellenwerte aus `hydrology_tables.json` ab.
+ */
 export const flowPathStandards = {
   hydraulicRadiusM: {
     sheet: hydrologyTables.hydraulic_radius_defaults_m.sheet_flow,
@@ -186,12 +192,12 @@ function trapezoidVelocityMs(segment: TrapezoidFlowSegment, options: TravelTimeO
   let hi = 1;
   while (dischargeForDepth(hi) < qM3s) {
     hi *= 2;
-    if (hi > 100) {
+    if (hi > MAX_TRAPEZOID_DEPTH_M) {
       throw new Error('Could not bracket trapezoid flow depth');
     }
   }
 
-  for (let i = 0; i < 80; i += 1) {
+  for (let i = 0; i < TRAPEZOID_BISECTION_ITERATIONS; i += 1) {
     const mid = (lo + hi) / 2;
     if (dischargeForDepth(mid) < qM3s) {
       lo = mid;
