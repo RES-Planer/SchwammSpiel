@@ -9,6 +9,8 @@ import { cumulativeRainFraction, type RainShape } from './rain';
 import { effectiveRainMm, initialAbstractionMm, storageMmFromCn } from './runoff';
 import { gammaShape } from './unitHydrograph';
 
+export type { RainShape } from './rain';
+
 export type HydrographInput = {
   areaHa: number;
   cn: number;
