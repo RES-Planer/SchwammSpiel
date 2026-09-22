@@ -1,3 +1,10 @@
+import {
+  NRCS_DELTA_D_FROM_TC,
+  NRCS_PRF_REFERENCE_RATIO,
+  NRCS_TP_FROM_DELTA_D,
+  NRCS_TP_FROM_TC,
+  NRCS_UH_CUTOFF,
+} from './assumptions';
 import { cumulativeRainFraction, type RainShape } from './rain';
 import { effectiveRainMm, initialAbstractionMm, storageMmFromCn } from './runoff';
 import { gammaShape } from './unitHydrograph';
@@ -26,11 +33,9 @@ export type HydrographResult = HydrographInput & {
   tPeakH: number;
 };
 
-const UH_CUTOFF = 0.001;
-
 export function computeHydrograph(input: HydrographInput): HydrographResult {
-  const dtH = 0.133 * input.tcH;
-  const tpH = dtH / 2 + 0.6 * input.tcH;
+  const dtH = NRCS_DELTA_D_FROM_TC.value * input.tcH;
+  const tpH = dtH * NRCS_TP_FROM_DELTA_D.value + NRCS_TP_FROM_TC.value * input.tcH;
   const n = Math.max(1, Math.round(input.durationH / dtH));
 
   const cumulativeEffectiveMm = Array.from({ length: n + 1 }, (_, i) => {
@@ -44,14 +49,15 @@ export function computeHydrograph(input: HydrographInput): HydrographResult {
 
   const areaM2 = input.areaHa * 1e4;
   const m = gammaShape(input.prf);
-  const qpPerMm = areaM2 * 1e-3 / (tpH * 3600 * (645.33 / input.prf));
+  const qpPerMm =
+    areaM2 * 1e-3 / (tpH * 3600 * (NRCS_PRF_REFERENCE_RATIO.value / input.prf));
 
   const unitHydrographM3sPerMm: number[] = [0];
   for (let k = 1; ; k += 1) {
     const tau = (k * dtH) / tpH;
     const val = tau ** m * Math.exp(m * (1 - tau));
     unitHydrographM3sPerMm.push(qpPerMm * val);
-    if (tau > 1 && val < UH_CUTOFF) {
+    if (tau > 1 && val < NRCS_UH_CUTOFF.value) {
       break;
     }
   }

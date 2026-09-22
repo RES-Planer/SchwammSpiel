@@ -36,7 +36,7 @@ export function logGamma(z: number): number {
 }
 
 export function gammaShape(prf: number): number {
-  const target = 645.33 / prf;
+  const target = NRCS_PRF_REFERENCE_RATIO.value / prf;
   const f = (m: number) =>
     Math.exp(m + logGamma(m + 1) - (m + 1) * Math.log(m)) - target;
 
@@ -54,3 +54,4 @@ export function gammaShape(prf: number): number {
 
   return (lo + hi) / 2;
 }
+import { NRCS_PRF_REFERENCE_RATIO } from './assumptions';
