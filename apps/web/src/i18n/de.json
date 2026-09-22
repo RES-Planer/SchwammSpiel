@@ -4,5 +4,6 @@
   "app.language.de": "Deutsch",
   "app.language.cs": "Čeština",
   "app.language.en": "English",
+  "app.mapLabel": "Karte",
   "map.attribution": "© OpenStreetMap-Mitwirkende"
 }

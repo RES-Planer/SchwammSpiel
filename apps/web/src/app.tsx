@@ -23,7 +23,7 @@ export function App() {
             type: 'raster',
             tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
             tileSize: 256,
-            attribution: t(locale, 'map.attribution'),
+            attribution: t('de', 'map.attribution'),
           },
         },
         layers: [
@@ -41,7 +41,7 @@ export function App() {
     return () => {
       map.remove();
     };
-  }, [locale]);
+  }, []);
 
   useEffect(() => {
     document.title = t(locale, 'app.title');
@@ -62,7 +62,7 @@ export function App() {
           </option>
         ))}
       </select>
-      <div ref={mapElementRef} id="map" />
+      <div ref={mapElementRef} id="map" aria-label={t(locale, 'app.mapLabel')} role="region" />
     </main>
   );
 }
