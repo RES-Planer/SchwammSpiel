@@ -18,6 +18,7 @@ Wichtige Befehle:
 pnpm lint
 pnpm test
 pnpm build
+pnpm calibrate
 ```
 
 ## Struktur

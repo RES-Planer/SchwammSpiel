@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://res-planer.github.io/SchwammSpiel/schema/scenario.schema.json",
+  "title": "SchwammSpiel Catchment Scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "mqLsKm2", "rainEvents", "subcatchments"],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "mqLsKm2": { "type": "number", "exclusiveMinimum": 0 },
+    "rainEvents": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/rainEvent" }
+    },
+    "subcatchments": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/subcatchment" }
+    }
+  },
+  "$defs": {
+    "rainEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "pMm", "durationH", "rainShape"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "pMm": { "type": "number", "exclusiveMinimum": 0 },
+        "durationH": { "type": "number", "exclusiveMinimum": 0 },
+        "rainShape": { "enum": ["mittenbetont", "block"] }
+      }
+    },
+    "reference": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["cn", "tcH"],
+          "properties": {
+            "cn": { "type": "number", "minimum": 0, "maximum": 100 },
+            "tcH": { "type": "number", "exclusiveMinimum": 0 },
+            "todo": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["csv"],
+          "properties": {
+            "csv": { "type": "string", "minLength": 1 },
+            "todo": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "patch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "areaHa", "cn"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "areaHa": { "type": "number", "exclusiveMinimum": 0 },
+        "cn": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "flowSegment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "lengthM", "slope"],
+      "properties": {
+        "type": {
+          "enum": ["sheet", "rill", "hollow", "trapezoid", "pipe", "stonefield"]
+        },
+        "lengthM": { "type": "number", "exclusiveMinimum": 0 },
+        "slope": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "measure": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "patchId", "cn"],
+          "properties": {
+            "kind": { "const": "landUseChange" },
+            "patchId": { "type": "string", "minLength": 1 },
+            "cn": { "type": "number", "minimum": 0, "maximum": 100 },
+            "areaUsedHa": { "type": "number", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "shape", "outlet"],
+          "properties": {
+            "kind": { "const": "storage" },
+            "shape": { "type": "object" },
+            "outlet": { "type": "object" },
+            "areaUsedHa": { "type": "number", "minimum": 0 },
+            "excavationM3": { "type": "number", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "elements"],
+          "properties": {
+            "kind": { "const": "retentionGroup" },
+            "mode": { "enum": ["physical", "thesis_triangle"] },
+            "infiltration": { "enum": ["off", "on"] },
+            "elements": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "object" }
+            },
+            "areaUsedHa": { "type": "number", "minimum": 0 },
+            "excavationM3": { "type": "number", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "chainageM", "landCoverK", "lengthM", "areaShare"],
+          "properties": {
+            "kind": { "const": "swale" },
+            "chainageM": { "type": "number", "minimum": 0 },
+            "landCoverK": { "type": "number", "exclusiveMinimum": 0 },
+            "lengthM": { "type": "number", "exclusiveMinimum": 0 },
+            "bottomWidthM": { "type": "number", "exclusiveMinimum": 0 },
+            "depthM": { "type": "number", "exclusiveMinimum": 0 },
+            "sideSlopeM": { "type": "number", "exclusiveMinimum": 0 },
+            "areaShare": { "type": "number", "minimum": 0, "maximum": 1 },
+            "delayH": { "type": "number", "minimum": 0 },
+            "infiltration": { "enum": ["off", "on"] },
+            "elevationProfileM": {
+              "type": "array",
+              "items": { "type": "number" }
+            },
+            "areaUsedHa": { "type": "number", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "chainageM",
+            "widthM",
+            "lengthFlowM",
+            "slope",
+            "areaShare"
+          ],
+          "properties": {
+            "kind": { "const": "stonefield" },
+            "chainageM": { "type": "number", "minimum": 0 },
+            "widthM": { "type": "number", "exclusiveMinimum": 0 },
+            "lengthFlowM": { "type": "number", "exclusiveMinimum": 0 },
+            "slope": { "type": "number", "exclusiveMinimum": 0 },
+            "areaShare": { "type": "number", "minimum": 0, "maximum": 1 },
+            "delayH": { "type": "number", "minimum": 0 },
+            "infiltration": { "enum": ["off", "on"] },
+            "soilGroup": { "enum": ["A", "B", "C", "D"] },
+            "spacingM": { "type": "number", "exclusiveMinimum": 0 },
+            "holeDiameterM": { "type": "number", "exclusiveMinimum": 0 },
+            "holeDepthM": { "type": "number", "exclusiveMinimum": 0 },
+            "porosity": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "d50M": { "type": "number", "exclusiveMinimum": 0 },
+            "kStone": { "type": "number", "exclusiveMinimum": 0 },
+            "areaUsedHa": { "type": "number", "minimum": 0 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "flowPath"],
+          "properties": {
+            "kind": { "const": "flowPathChange" },
+            "flowPath": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/flowSegment" }
+            }
+          }
+        }
+      ]
+    },
+    "measureArea": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "areaHa", "patches", "flowPath", "lagToParentH", "measures"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "areaHa": { "type": "number", "exclusiveMinimum": 0 },
+        "patches": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/patch" }
+        },
+        "flowPath": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/flowSegment" }
+        },
+        "lagToParentH": { "type": "number", "minimum": 0 },
+        "measures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/measure" }
+        }
+      }
+    },
+    "subcatchment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "areaHa",
+        "iaRatio",
+        "prf",
+        "tcFactor",
+        "lagToOutletH",
+        "reference",
+        "measureAreas"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "areaHa": { "type": "number", "exclusiveMinimum": 0 },
+        "iaRatio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "prf": { "type": "number", "exclusiveMinimum": 0 },
+        "tcFactor": { "type": "number", "exclusiveMinimum": 0 },
+        "lagToOutletH": { "type": "number", "minimum": 0 },
+        "reference": { "$ref": "#/$defs/reference" },
+        "measureAreas": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/measureArea" }
+        }
+      }
+    }
+  }
+}
