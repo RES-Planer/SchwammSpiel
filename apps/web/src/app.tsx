@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'preact/hooks';
 
 import { locales, type Locale, t } from './i18n';
