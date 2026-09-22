@@ -92,6 +92,8 @@ export const flowPathStandards = {
     sheet: hydrologyTables.hydraulic_radius_defaults_m.sheet_flow,
     rill: hydrologyTables.hydraulic_radius_defaults_m.rills,
     hollow: hydrologyTables.hydraulic_radius_defaults_m.swale_hollow,
+    pipe: hydrologyTables.hydraulic_radius_defaults_m.rills,
+    stonefield: hydrologyTables.hydraulic_radius_defaults_m.sheet_flow,
   },
   kRange: {
     sheet: aggregateRange(sheetValues, 'roughness_strickler_sheet_flow.values'),
@@ -138,7 +140,10 @@ function resolveHydraulicRadiusM(segment: NonTrapezoidFlowSegment): number {
   if (segment.type === 'hollow') {
     return flowPathStandards.hydraulicRadiusM.hollow;
   }
-  throw new Error(`rHydM is required for segment type '${segment.type}'`);
+  if (segment.type === 'pipe') {
+    return flowPathStandards.hydraulicRadiusM.pipe;
+  }
+  return flowPathStandards.hydraulicRadiusM.stonefield;
 }
 
 function assertPositive(name: string, value: number): void {
