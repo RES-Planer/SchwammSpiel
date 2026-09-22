@@ -196,6 +196,15 @@ describe('sizeStorageForTarget', () => {
 
     expect(vM3).toBeGreaterThanOrEqual(1400);
     expect(vM3).toBeLessThanOrEqual(1700);
+
+    const routed = routeStorage(
+      hydro.qM3s,
+      hydro.dtH,
+      { form: 'prism', baseAreaM2: vM3 / 1.6, hMaxM: 1.6 },
+      { type: 'pipe', lengthM: 5, dnMm: 250 },
+    );
+    expect(routed.spillM3).toBeLessThanOrEqual(1e-9);
+    expect(routed.qOutMaxM3s).toBeLessThanOrEqual(0.153 + 1e-9);
   });
 });
 
