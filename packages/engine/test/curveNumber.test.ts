@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
 import { aggregateCn, cnForPatch, computeHydrograph } from '../src/index';
+import { effectiveRainMm } from '../src/runoff';
 
 describe('cnForPatch', () => {
   test('matches SPEC check value for maize C in March with mulch and contour tillage', () => {
@@ -114,6 +115,32 @@ describe('aggregateCn', () => {
         'runoff_weighted',
       ),
     ).toThrow(/iaRatio/);
+  });
+
+
+  test('runoff_weighted with multiple patches equals area-weighted per-patch effective rainfall', () => {
+    const iaRatio = 0.165;
+    const patches = [
+      { areaHa: 1.7, cn: 92 },
+      { areaHa: 3.0, cn: 82.1 },
+      { areaHa: 5.4, cn: 84.2 },
+    ];
+
+    const weighted = aggregateCn(patches, 'runoff_weighted', { iaRatio });
+    if (weighted.mode !== 'runoff_weighted') {
+      throw new Error('unexpected aggregation mode');
+    }
+
+    const totalArea = patches.reduce((sum, patch) => sum + patch.areaHa, 0);
+    const rainfallDepthsMm = [10, 40, 80];
+
+    for (const pCumMm of rainfallDepthsMm) {
+      const expected = patches.reduce((sum, patch) => {
+        const weight = patch.areaHa / totalArea;
+        return sum + weight * effectiveRainMm(pCumMm, patch.cn, iaRatio);
+      }, 0);
+      expect(weighted.neffMm(pCumMm)).toBeCloseTo(expected, 12);
+    }
   });
 
   test('runoff_weighted neff produces the same hydrograph as direct CN for a single patch', () => {
