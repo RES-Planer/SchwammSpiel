@@ -50,7 +50,7 @@ export function App() {
   useEffect(() => {
     const map = mapRef.current;
     if (!map) {
-      return;
+      return undefined;
     }
 
     if (attributionControlRef.current) {
@@ -63,6 +63,13 @@ export function App() {
 
     map.addControl(control);
     attributionControlRef.current = control;
+
+    return () => {
+      if (attributionControlRef.current) {
+        map.removeControl(attributionControlRef.current);
+        attributionControlRef.current = null;
+      }
+    };
   }, [locale]);
 
   useEffect(() => {
@@ -84,7 +91,13 @@ export function App() {
           </option>
         ))}
       </select>
-      <div ref={mapElementRef} id="map" aria-label={t(locale, 'app.mapLabel')} role="region" />
+      <div
+        ref={mapElementRef}
+        id="map"
+        aria-label={t(locale, 'app.mapLabel')}
+        role="region"
+        tabIndex={0}
+      />
     </main>
   );
 }
