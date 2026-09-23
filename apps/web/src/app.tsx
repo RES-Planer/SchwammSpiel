@@ -30,6 +30,7 @@ import {
   type LayerManifest,
   type SubcatchmentDetails,
 } from './mapData';
+import { buildManifestLayer, buildManifestSource } from './manifestLayers';
 import {
   buildRainChartSeries,
   estimateFillTimeH,
@@ -450,40 +451,8 @@ export function App() {
     for (const layer of manifest.layers) {
       const sourceId = sourceIdFor(layer.id);
       const layerId = layerIdFor(layer.id);
-      const paint = layer.style?.paint as Record<string, unknown> | undefined;
-      const layout = {
-        visibility: layer.visibleByDefault === false ? 'none' : 'visible',
-        ...(layer.style?.layout ?? {}),
-      } as Record<string, unknown>;
-
-      if (layer.type === 'geojson') {
-        map.addSource(sourceId, {
-          type: 'geojson',
-          data: buildDataUrl(import.meta.env.BASE_URL, catchmentId, layer.path),
-        });
-      } else if (layer.type === 'image') {
-        map.addSource(sourceId, {
-          type: 'image',
-          url: buildDataUrl(import.meta.env.BASE_URL, catchmentId, layer.path),
-          coordinates: layer.coordinates,
-        });
-      } else {
-        map.addSource(sourceId, {
-          type: 'raster',
-          tiles: layer.tiles,
-          tileSize: layer.tileSize ?? 256,
-        });
-      }
-
-      map.addLayer({
-        id: layerId,
-        type: layer.layerType,
-        source: sourceId,
-        paint,
-        layout,
-        minzoom: layer.minzoom,
-        maxzoom: layer.maxzoom,
-      } as maplibregl.AddLayerObject);
+      map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId));
+      map.addLayer(buildManifestLayer(layer, sourceId));
 
       addedLayerIds.push(layerId);
       addedSourceIds.push(sourceId);

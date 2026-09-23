@@ -27,3 +27,11 @@ pnpm calibrate
 - `apps/web`: Vite + Preact + MapLibre-Weboberfläche
 - `fixtures/`: Test- und Referenzdaten
 - `docs/SPEC_hydrology.md`: Verbindliche hydrologische Fachspezifikation
+
+## Karten-Manifest (`apps/web/public/data/<gebiet>/manifest.json`)
+
+- Basiskarten und Fachdaten-Layer werden ausschließlich über das Manifest geladen (keine fest verdrahteten Tile-URLs im Code).
+- Attributionsangaben je Layer sind verpflichtend und müssen den Anbieter inkl. Lizenz enthalten.
+- Für die derzeitigen Basiskarten gilt:
+  - `basemap-topplusopen`: `TopPlusOpen (BKG), CC BY 4.0`
+  - `basemap-openfreemap`: OpenFreeMap/OpenMapTiles/OpenStreetMap-Mitwirkende inkl. `ODbL` (lokalisiert in `de/cs/en`).
