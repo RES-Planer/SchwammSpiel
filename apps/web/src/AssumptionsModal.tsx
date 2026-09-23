@@ -1,4 +1,5 @@
 import { assumptions } from '@schwammspiel/engine';
+import { useEffect, useRef } from 'preact/hooks';
 
 import type { Locale } from './i18n';
 import { t } from './i18n';
@@ -10,6 +11,24 @@ type Props = {
 };
 
 export function AssumptionsModal({ locale, open, onClose }: Props) {
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+    closeButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose, open]);
+
   if (!open) {
     return null;
   }
@@ -25,7 +44,7 @@ export function AssumptionsModal({ locale, open, onClose }: Props) {
       >
         <div className="modal-header">
           <h2 id="assumptions-title">{t(locale, 'result.assumptions')}</h2>
-          <button type="button" onClick={onClose}>
+          <button ref={closeButtonRef} type="button" onClick={onClose}>
             {t(locale, 'common.close')}
           </button>
         </div>

@@ -124,8 +124,13 @@ export function HydrographChart({ locale, labels, rainfall, before, after }: Pro
 
   return (
     <div className="hydrograph-chart-stack">
-      <div ref={rainHostRef} className="chart-host" aria-label={labels.rainfallAria} />
-      <div ref={hydrographHostRef} className="chart-host" aria-label={labels.hydrographAria} />
+      <div ref={rainHostRef} className="chart-host" role="img" aria-label={labels.rainfallAria} />
+      <div
+        ref={hydrographHostRef}
+        className="chart-host"
+        role="img"
+        aria-label={labels.hydrographAria}
+      />
     </div>
   );
 }

@@ -35,6 +35,7 @@ import {
   estimateFillTimeH,
   estimateScenarioCost,
   findMeasureSubcatchmentId,
+  getHydrographsForProtectionPoint,
   getPeakDelayH,
   getPeakReductionPct,
   getProtectionPointOptions,
@@ -715,6 +716,24 @@ export function App() {
       peakDelayH: getPeakDelayH(evaluationResult, selectedProtectionPointId),
       stars: getStarRating(peakReductionPct),
     };
+  }, [evaluationResult, selectedProtectionPointId]);
+
+  const visibleWarnings = useMemo(() => {
+    if (!evaluationResult) {
+      return [];
+    }
+    const scopedWarnings =
+      selectedProtectionPointId === OUTLET_PROTECTION_POINT_ID
+        ? evaluationResult.warnings
+        : [
+            ...evaluationResult.warnings,
+            ...(evaluationResult.subcatchments.find((entry) => entry.id === selectedProtectionPointId)?.warnings ??
+              []),
+          ];
+    return scopedWarnings.filter((warning, index, warnings) => {
+      const key = `${warning.scope}-${warning.code}-${warning.message}`;
+      return warnings.findIndex((entry) => `${entry.scope}-${entry.code}-${entry.message}` === key) === index;
+    });
   }, [evaluationResult, selectedProtectionPointId]);
 
   const costEstimate = useMemo(() => {
@@ -1435,8 +1454,8 @@ export function App() {
                       hydrographAria: t(locale, 'result.chart.hydrographAria'),
                     }}
                     rainfall={rainChartSeries}
-                    before={getHydrographForChart(evaluationResult, selectedProtectionPointId).before}
-                    after={getHydrographForChart(evaluationResult, selectedProtectionPointId).after}
+                    before={getHydrographsForProtectionPoint(evaluationResult, selectedProtectionPointId).before}
+                    after={getHydrographsForProtectionPoint(evaluationResult, selectedProtectionPointId).after}
                   />
                 ) : null}
                 <ResultNote locale={locale} onOpenAssumptions={() => setShowAssumptions(true)} />
@@ -1498,9 +1517,9 @@ export function App() {
                       </div>
                     </dl>
                     {unitCosts?.noteKey ? <p className="hint-text">{t(locale, unitCosts.noteKey)}</p> : null}
-                    {evaluationResult.warnings.length > 0 ? (
+                    {visibleWarnings.length > 0 ? (
                       <ul className="warning-list">
-                        {evaluationResult.warnings.map((warning) => (
+                        {visibleWarnings.map((warning) => (
                           <li key={`${warning.scope}-${warning.code}-${warning.message}`}>{warning.message}</li>
                         ))}
                       </ul>
@@ -2162,29 +2181,6 @@ function formatCurrency(localeTag: string, value: number): string {
     currency: 'EUR',
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-function getHydrographForChart(
-  evaluationResult: ScenarioEvaluationResult,
-  protectionPointId: string,
-): { before: ScenarioHydrograph; after: ScenarioHydrograph } {
-  if (protectionPointId === OUTLET_PROTECTION_POINT_ID) {
-    return {
-      before: evaluationResult.before,
-      after: evaluationResult.after,
-    };
-  }
-  const subcatchment = evaluationResult.subcatchments.find((entry) => entry.id === protectionPointId);
-  if (!subcatchment) {
-    return {
-      before: evaluationResult.before,
-      after: evaluationResult.after,
-    };
-  }
-  return {
-    before: subcatchment.before,
-    after: subcatchment.after,
-  };
 }
 
 function interpolateHydrographQ(hydrograph: ScenarioHydrograph, timeH: number): number {

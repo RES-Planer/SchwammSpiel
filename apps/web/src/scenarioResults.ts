@@ -100,7 +100,7 @@ export function buildRainChartSeries(rainEvent: ScenarioRainEvent, dtH: number):
 
 export function getProtectionPointOptions(catchment: Catchment): ProtectionPointOption[] {
   return [
-    { id: OUTLET_PROTECTION_POINT_ID, label: 'Gebietsauslass' },
+    { id: OUTLET_PROTECTION_POINT_ID, label: OUTLET_PROTECTION_POINT_ID },
     ...catchment.subcatchments.map((subcatchment) => ({
       id: subcatchment.id,
       label: subcatchment.id,
