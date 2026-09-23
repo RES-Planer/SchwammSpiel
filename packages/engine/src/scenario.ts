@@ -599,6 +599,24 @@ function sumTranslatedHydrographs(
     return { dtH: 1, qM3s: [], qMaxM3s: 0, tPeakH: 0, volumeM3: 0 };
   }
 
+  if (sources.length === 1) {
+    const source = sources[0]!;
+    const maxTimeH =
+      source.lagH + Math.max(0, source.hydrograph.qM3s.length - 1) * source.hydrograph.dtH;
+    const length = Math.ceil(maxTimeH / source.hydrograph.dtH) + 1;
+    const translated = translateSeries(
+      source.hydrograph.qM3s,
+      source.hydrograph.dtH,
+      source.lagH,
+      source.hydrograph.dtH,
+      length,
+    );
+    return {
+      ...toScenarioHydrograph(source.hydrograph.dtH, translated),
+      tPeakH: source.hydrograph.tPeakH + source.lagH,
+    };
+  }
+
   const dtH = Math.min(...sources.map((source) => source.hydrograph.dtH));
   const maxTimeH = Math.max(
     ...sources.map(

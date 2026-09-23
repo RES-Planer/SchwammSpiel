@@ -72,21 +72,21 @@ function calibrateTcH(seed: CalibrationSeed): number {
   return hi;
 }
 
-function buildCatchment(tcHs: number[], lagScale: number): Catchment {
+function buildCatchment(tcHs: number[], tcScale: number): Catchment {
   return {
     id: 'goldbach',
     name: 'Goldbach bei Ebnath',
     mqLsKm2,
     rainEvents: [rainEvent],
     subcatchments: subcatchmentSeeds.map((seed, index) => {
-      const tcH = tcHs[index] ?? 1;
+      const tcH = (tcHs[index] ?? 1) * tcScale;
       return {
         id: seed.id,
         areaHa: seed.areaHa,
         iaRatio: 0.165,
         prf: 484,
         tcFactor: 1,
-        lagToOutletH: lagPattern[index]! * lagScale,
+        lagToOutletH: lagPattern[index]!,
         reference: {
           cn: seed.cn,
           tcH,
@@ -121,18 +121,24 @@ function buildCatchment(tcHs: number[], lagScale: number): Catchment {
   };
 }
 
-function calibrateLagScale(tcHs: number[]): number {
-  const qAtScale = (lagScale: number) => {
-    const result = evaluateScenario(buildCatchment(tcHs, lagScale), rainEvent.id, false);
+function calibrateTcScale(tcHs: number[]): number {
+  const qAtScale = (tcScale: number) => {
+    const result = evaluateScenario(buildCatchment(tcHs, tcScale), rainEvent.id, false);
     return result.qMaxBeforeM3s;
   };
 
-  let lo = 0;
-  let hi = 0.5;
+  let lo = 0.1;
+  let hi = 1;
+  while (qAtScale(lo) < targetCatchmentQMaxM3s) {
+    lo /= 2;
+    if (lo < 1e-6) {
+      throw new Error('Could not bracket tc scale for Goldbach calibration');
+    }
+  }
   while (qAtScale(hi) > targetCatchmentQMaxM3s) {
     hi *= 2;
     if (hi > 48) {
-      throw new Error('Could not bracket lag scale for Goldbach calibration');
+      throw new Error('Could not bracket tc scale for Goldbach calibration');
     }
   }
 
@@ -149,8 +155,8 @@ function calibrateLagScale(tcHs: number[]): number {
 }
 
 const tcHs = subcatchmentSeeds.map(calibrateTcH);
-const lagScale = calibrateLagScale(tcHs);
-const catchment = buildCatchment(tcHs, lagScale);
+const tcScale = calibrateTcScale(tcHs);
+const catchment = buildCatchment(tcHs, tcScale);
 
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, `${JSON.stringify(catchment, null, 2)}\n`, 'utf8');
@@ -161,6 +167,7 @@ console.log(
     {
       outputPath,
       catchmentQMaxM3s: result.qMaxBeforeM3s,
+      tcScale,
       subcatchments: catchment.subcatchments.map((subcatchment) => ({
         id: subcatchment.id,
         tcH: 'tcH' in subcatchment.reference ? subcatchment.reference.tcH : null,
