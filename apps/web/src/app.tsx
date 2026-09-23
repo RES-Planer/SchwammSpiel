@@ -15,6 +15,12 @@ import type { JSX } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { AssumptionsModal } from './AssumptionsModal';
+import {
+  applyBaseStyle,
+  defaultMapStyle,
+  findVisibleVectorStyleLayer,
+  isSourceLayer,
+} from './basemapStyle';
 import { geodesicLengthM, geodesicPolygonAreaM2, type LngLat } from './geodesy';
 import { HydrographChart } from './HydrographChart';
 import { locales, type Locale, t } from './i18n';
@@ -28,9 +34,7 @@ import {
   resolveCatchmentId,
   type CatchmentManifest,
   type LayerManifest,
-  type SourceLayerManifest,
   type SubcatchmentDetails,
-  type VectorStyleLayerManifest,
 } from './mapData';
 import { buildManifestLayer, buildManifestSource } from './manifestLayers';
 import {
@@ -64,20 +68,6 @@ import {
   type ScenarioState,
 } from './scenarioState';
 import './app.css';
-
-const mapStyle: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {},
-  layers: [
-    {
-      id: 'background',
-      type: 'background',
-      paint: {
-        'background-color': '#f8fafc',
-      },
-    },
-  ],
-};
 
 type DrawMode = {
   kind: MeasureKind;
@@ -231,7 +221,7 @@ export function App() {
 
     const map = new maplibregl.Map({
       container: mapElement,
-      style: mapStyle,
+      style: defaultMapStyle,
       center: [11.93, 49.945],
       zoom: 13,
       attributionControl: false,
@@ -483,34 +473,10 @@ export function App() {
     if (activeBaseStyleRef.current !== nextBaseStyleKey) {
       activeBaseStyleRef.current = nextBaseStyleKey;
 
-      const handleStyleError = () => {
-        map.off('style.load', handleStyleLoad);
-        if (!activeBaseStyleUrl) {
-          return;
-        }
-
-        activeBaseStyleRef.current = '__default__';
-        map.once('style.load', applyManifestLayers);
-        map.setStyle(mapStyle);
-      };
-
-      const handleStyleLoad = () => {
-        if (activeBaseStyleUrl) {
-          map.off('error', handleStyleError);
-        }
+      return applyBaseStyle(map, activeBaseStyleUrl, () => {
+        activeBaseStyleRef.current = activeBaseStyleUrl ?? '__default__';
         applyManifestLayers();
-      };
-
-      map.once('style.load', handleStyleLoad);
-      if (activeBaseStyleUrl) {
-        map.once('error', handleStyleError);
-      }
-      map.setStyle(activeBaseStyleUrl ?? mapStyle);
-
-      return () => {
-        map.off('style.load', handleStyleLoad);
-        map.off('error', handleStyleError);
-      };
+      });
     }
 
     applyManifestLayers();
@@ -1587,23 +1553,6 @@ function sourceIdFor(layerId: string): string {
 
 function layerIdFor(layerId: string): string {
   return `catchment-layer-${layerId}`;
-}
-
-function isSourceLayer(layer: LayerManifest): layer is SourceLayerManifest {
-  return layer.type !== 'vector-style';
-}
-
-function findVisibleVectorStyleLayer(
-  layers: LayerManifest[],
-  visibility: Record<string, boolean>,
-): VectorStyleLayerManifest | null {
-  const activeLayer = [...layers]
-    .reverse()
-    .find(
-      (layer): layer is VectorStyleLayerManifest =>
-        layer.type === 'vector-style' && (visibility[layer.id] ?? layer.visibleByDefault ?? true),
-    );
-  return activeLayer ?? null;
 }
 
 function removeManifestLayers(map: maplibregl.Map, layerIds: string[], sourceIds: string[]): void {
