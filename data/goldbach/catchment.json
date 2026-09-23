@@ -1,0 +1,271 @@
+{
+  "id": "goldbach",
+  "name": "Goldbach bei Ebnath",
+  "mqLsKm2": 15.53,
+  "rainEvents": [
+    {
+      "id": "hq20-18h",
+      "name": "HQ20 18h",
+      "pMm": 69.9,
+      "durationH": 18,
+      "rainShape": "mittenbetont"
+    }
+  ],
+  "subcatchments": [
+    {
+      "id": "tgb-1",
+      "areaHa": 85,
+      "iaRatio": 0.165,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 0,
+      "reference": {
+        "cn": 78,
+        "tcH": 1.880515688137761
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-1-a",
+          "areaHa": 85,
+          "patches": [
+            {
+              "id": "tgb-1-patch",
+              "areaHa": 85,
+              "cn": 78
+            }
+          ],
+          "flowPath": [
+            {
+              "type": "pipe",
+              "lengthM": 6769.856477295939,
+              "slope": 1,
+              "k": 1,
+              "rHydM": 1
+            }
+          ],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-2",
+      "areaHa": 80,
+      "iaRatio": 0.165,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 0.25,
+      "reference": {
+        "cn": 80,
+        "tcH": 1.988395652558777
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-2-a",
+          "areaHa": 80,
+          "patches": [
+            {
+              "id": "tgb-2-patch",
+              "areaHa": 80,
+              "cn": 80
+            }
+          ],
+          "flowPath": [
+            {
+              "type": "pipe",
+              "lengthM": 7158.224349211597,
+              "slope": 1,
+              "k": 1,
+              "rHydM": 1
+            }
+          ],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-3",
+      "areaHa": 88,
+      "iaRatio": 0.165,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 0.5,
+      "reference": {
+        "cn": 73,
+        "tcH": 2.2576234811150075,
+        "todo": "TODO(DATA): placeholder CN 73.0"
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-3-a",
+          "areaHa": 88,
+          "patches": [
+            {
+              "id": "tgb-3-patch",
+              "areaHa": 88,
+              "cn": 73
+            }
+          ],
+          "flowPath": [
+            {
+              "type": "pipe",
+              "lengthM": 8127.444532014028,
+              "slope": 1,
+              "k": 1,
+              "rHydM": 1
+            }
+          ],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-4",
+      "areaHa": 84,
+      "iaRatio": 0.165,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 0.75,
+      "reference": {
+        "cn": 74,
+        "tcH": 3.599174672986554,
+        "todo": "TODO(DATA): placeholder CN 74.0"
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-4-a",
+          "areaHa": 84,
+          "patches": [
+            {
+              "id": "tgb-4-patch",
+              "areaHa": 84,
+              "cn": 74
+            }
+          ],
+          "flowPath": [
+            {
+              "type": "pipe",
+              "lengthM": 12957.028822751596,
+              "slope": 1,
+              "k": 1,
+              "rHydM": 1
+            }
+          ],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-5",
+      "areaHa": 83,
+      "iaRatio": 0.165,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 1,
+      "reference": {
+        "cn": 76,
+        "tcH": 5.9014664108951695
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-5-a",
+          "areaHa": 83,
+          "patches": [
+            {
+              "id": "tgb-5-patch",
+              "areaHa": 83,
+              "cn": 76
+            }
+          ],
+          "flowPath": [
+            {
+              "type": "pipe",
+              "lengthM": 21245.27907922261,
+              "slope": 1,
+              "k": 1,
+              "rHydM": 1
+            }
+          ],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-6",
+      "areaHa": 90,
+      "iaRatio": 0.165,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 1.25,
+      "reference": {
+        "cn": 82,
+        "tcH": 2.147369502724804
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-6-a",
+          "areaHa": 90,
+          "patches": [
+            {
+              "id": "tgb-6-patch",
+              "areaHa": 90,
+              "cn": 82
+            }
+          ],
+          "flowPath": [
+            {
+              "type": "pipe",
+              "lengthM": 7730.530209809294,
+              "slope": 1,
+              "k": 1,
+              "rHydM": 1
+            }
+          ],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-7",
+      "areaHa": 77,
+      "iaRatio": 0.165,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 1.5,
+      "reference": {
+        "cn": 75,
+        "tcH": 15.84312597161053,
+        "todo": "TODO(DATA): placeholder CN 75.0"
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-7-a",
+          "areaHa": 77,
+          "patches": [
+            {
+              "id": "tgb-7-patch",
+              "areaHa": 77,
+              "cn": 75
+            }
+          ],
+          "flowPath": [
+            {
+              "type": "pipe",
+              "lengthM": 57035.25349779791,
+              "slope": 1,
+              "k": 1,
+              "rHydM": 1
+            }
+          ],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    }
+  ]
+}

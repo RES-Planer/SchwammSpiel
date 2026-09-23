@@ -1,15 +1,39 @@
-main {
+.app-shell {
   display: grid;
   gap: 0.75rem;
   padding: 1rem;
 }
 
-h1 {
-  margin: 0;
-  font-size: 1.5rem;
+.toolbar {
+  display: grid;
+  gap: 0.75rem;
 }
 
-label {
+h1,
+.panel h2 {
+  margin: 0;
+}
+
+.subtitle,
+.scenario-note,
+.panel-empty {
+  margin: 0;
+  color: #334155;
+}
+
+.scenario-note {
+  font-weight: 600;
+}
+
+.toolbar-actions {
+  display: grid;
+  gap: 0.35rem;
+  max-width: 12rem;
+}
+
+label,
+.panel h2,
+.details-list dt {
   font-weight: 600;
 }
 
@@ -17,7 +41,137 @@ label {
   max-width: 12rem;
 }
 
+.map-layout {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.panel {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #ffffff;
+}
+
+.layer-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.layer-toggle {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-weight: 400;
+}
+
+.legend-list,
+.share-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend-item,
+.share-list li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.legend-swatch {
+  width: 1.6rem;
+  height: 1rem;
+  border: 2px solid transparent;
+  border-radius: 0.25rem;
+  flex: 0 0 auto;
+}
+
+.legend-line {
+  height: 0.35rem;
+  border-radius: 999px;
+}
+
+.legend-circle {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+}
+
+.map-frame {
+  position: relative;
+}
+
 #map {
   height: 60vh;
   min-height: 20rem;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.map-overlay {
+  position: absolute;
+  inset: 1rem;
+  display: grid;
+  place-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.9);
+  text-align: center;
+}
+
+.map-overlay-error {
+  align-content: center;
+}
+
+.details-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.details-list div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.details-list dd {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (min-width: 768px) {
+  .toolbar {
+    grid-template-columns: 1fr auto;
+    align-items: start;
+  }
+
+  .map-layout {
+    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 20rem);
+    align-items: start;
+  }
+
+  #map {
+    height: 72vh;
+  }
 }
