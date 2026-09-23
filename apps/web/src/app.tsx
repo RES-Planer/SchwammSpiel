@@ -1,10 +1,8 @@
 import {
   analyzeStonefieldHydraulics,
   type Catchment,
-  type FlowSegmentType,
   type ScenarioEvaluationResult,
   type ScenarioHydrograph,
-  type ScenarioMeasure,
   sizeStorageForTarget,
   stonefieldGeometry,
   swaleGeometry,
@@ -24,6 +22,9 @@ import {
 import { geodesicLengthM, geodesicPolygonAreaM2, type LngLat } from './geodesy';
 import { HydrographChart } from './HydrographChart';
 import { locales, type Locale, t } from './i18n';
+import { MeasureCard } from './MeasureCard';
+import { defaultParams, MeasureForm } from './MeasureForm';
+import { extractCnZones, inferCnZoneDefaults } from './cnZones';
 import {
   buildDataUrl,
   buildManifestUrl,
@@ -53,6 +54,7 @@ import {
   type SubcatchmentPolygon,
   type UnitCosts,
 } from './scenarioResults';
+import { buildEvaluableCatchment, evaluateLandUseChange } from './measureToScenario';
 import {
   commitHistoryState,
   createHistoryState,
@@ -144,6 +146,7 @@ export function App() {
   const [selectedSubcatchment, setSelectedSubcatchment] = useState<SubcatchmentDetails | null>(null);
   const [catchmentData, setCatchmentData] = useState<Catchment | null>(null);
   const [subcatchmentPolygons, setSubcatchmentPolygons] = useState<SubcatchmentPolygon[]>([]);
+  const [cnZones, setCnZones] = useState<ReturnType<typeof extractCnZones>>([]);
   const [flowPathFeatures, setFlowPathFeatures] = useState<FeatureCollection<LineFeature> | null>(null);
   const [unitCosts, setUnitCosts] = useState<UnitCosts | null>(null);
   const [loadingState, setLoadingState] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -262,6 +265,7 @@ export function App() {
     setSelectedSubcatchment(null);
     setCatchmentData(null);
     setSubcatchmentPolygons([]);
+    setCnZones([]);
     setFlowPathFeatures(null);
     setEvaluationResult(null);
     setEvaluationState('idle');
@@ -353,6 +357,10 @@ export function App() {
       (layer): layer is Extract<LayerManifest, { type: 'geojson' }> =>
         layer.type === 'geojson' && layer.inspectable === true,
     );
+    const cnZoneLayer = manifest?.layers.find(
+      (layer): layer is Extract<LayerManifest, { type: 'geojson' }> =>
+        layer.type === 'geojson' && layer.id === 'cn-zones',
+    );
     if (!flowPathLayer || !subcatchmentLayer) {
       return;
     }
@@ -404,6 +412,28 @@ export function App() {
           setSubcatchmentPolygons([]);
         }
       });
+
+    if (cnZoneLayer) {
+      void fetch(buildDataUrl(import.meta.env.BASE_URL, catchmentId, cnZoneLayer.path))
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return await response.json();
+        })
+        .then((data) => {
+          if (!cancelled) {
+            setCnZones(extractCnZones(data));
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setCnZones([]);
+          }
+        });
+    } else {
+      setCnZones([]);
+    }
 
     return () => {
       cancelled = true;
@@ -876,13 +906,14 @@ export function App() {
 
   const addMeasure = (kind: MeasureKind, geometry: MeasureState['geometry']) => {
     const id = `${kind}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 6)}`;
+    const cnZoneDefaults = kind === 'landUseChange' ? inferCnZoneDefaults(geometry, cnZones) : null;
     const measure: MeasureState = {
       id,
       kind,
       enabled: true,
       geometry,
       params: {
-        ...defaultParams(kind),
+        ...defaultParams(kind, cnZoneDefaults),
         targetSubcatchmentId:
           selectedSubcatchment?.id ?? catchmentData?.subcatchments[0]?.id ?? '',
         targetMeasureAreaId:
@@ -1088,6 +1119,7 @@ export function App() {
         scenario.measures,
         subcatchmentPolygons,
         selectedSubcatchment?.id ?? catchmentData.subcatchments[0]?.id ?? '',
+        measureSummaries,
       ),
       rainEventId: selectedRainEventId,
       measuresOn: true,
@@ -1258,55 +1290,24 @@ export function App() {
             <ul className="measure-list">
               {scenario.measures.map((measure) => {
                 const summary = summarizeMeasure(measure);
+                const landUseEvaluation = measure.kind === 'landUseChange' ? evaluateLandUseChange(measure) : null;
                 return (
-                  <li key={measure.id} className="measure-card">
-                    <label className="layer-toggle">
-                      <input
-                        type="checkbox"
-                        checked={measure.enabled}
-                        onChange={() =>
-                          updateMeasure(measure.id, (current) => ({
-                            ...current,
-                            enabled: !current.enabled,
-                          }))
-                        }
-                      />
-                      <span>{t(locale, `measure.tool.${measure.kind}`)}</span>
-                    </label>
-                    <div className="measure-card-actions">
-                      <button type="button" onClick={() => setSelectedMeasureId(measure.id)}>
-                        {t(locale, 'measure.card.edit')}
-                      </button>
-                      <button type="button" onClick={() => deleteMeasure(measure.id)}>
-                        {t(locale, 'measure.card.delete')}
-                      </button>
-                    </div>
-                    <dl className="measure-metrics">
-                      <div>
-                        <dt>{t(locale, 'measure.metric.areaHa')}</dt>
-                        <dd>{formatValue(numberFormatter, summary.areaHa, 'ha')}</dd>
-                      </div>
-                      <div>
-                        <dt>{t(locale, 'measure.metric.lengthM')}</dt>
-                        <dd>{formatValue(numberFormatter, summary.lengthM, 'm')}</dd>
-                      </div>
-                      <div>
-                        <dt>{t(locale, 'measure.metric.volumeM3')}</dt>
-                        <dd>{formatValue(numberFormatter, summary.volumeM3, 'm³')}</dd>
-                      </div>
-                      <div>
-                        <dt>{t(locale, 'measure.metric.excavationM3')}</dt>
-                        <dd>{formatValue(numberFormatter, summary.excavationM3, 'm³')}</dd>
-                      </div>
-                    </dl>
-                    {summary.warnings.length > 0 ? (
-                      <ul className="warning-list">
-                        {summary.warnings.map((warning) => (
-                          <li key={warning}>{t(locale, `measure.warning.${warning}`)}</li>
-                        ))}
-                      </ul>
-                    ) : null}
-                  </li>
+                  <MeasureCard
+                    key={measure.id}
+                    locale={locale}
+                    numberFormatter={numberFormatter}
+                    measure={measure}
+                    summary={summary}
+                    landUseEvaluation={landUseEvaluation}
+                    onToggle={() =>
+                      updateMeasure(measure.id, (current) => ({
+                        ...current,
+                        enabled: !current.enabled,
+                      }))
+                    }
+                    onEdit={() => setSelectedMeasureId(measure.id)}
+                    onDelete={() => deleteMeasure(measure.id)}
+                  />
                 );
               })}
             </ul>
@@ -1320,7 +1321,12 @@ export function App() {
                 {t(locale, 'measure.editor.title')}: {t(locale, `measure.tool.${selectedMeasure.kind}`)} (
                 {selectedMeasure.id})
               </h3>
-              {renderMeasureEditor(locale, selectedMeasure, updateMeasure, applyStorageSuggestion)}
+              <MeasureForm
+                locale={locale}
+                measure={selectedMeasure}
+                updateMeasure={updateMeasure}
+                applyStorageSuggestion={applyStorageSuggestion}
+              />
             </section>
           ) : null}
         </aside>
@@ -1856,348 +1862,6 @@ function parseHydrographSeries(value: string | number | boolean | undefined): nu
     .filter((entry) => Number.isFinite(entry) && entry >= 0);
 }
 
-function defaultParams(kind: MeasureKind): Record<string, number | string> {
-  switch (kind) {
-    case 'landUseChange':
-      return {
-        landUse: 'arable',
-        month: '4',
-        mulchDirectSeed: 'no',
-        tillageDirection: 'contour-parallel',
-      };
-    case 'storageWithPipe':
-      return {
-        form: 'prism',
-        depthM: 1.2,
-        pipeDnMm: 300,
-        pipeLengthM: 12,
-        inflowDtH: 0.25,
-        inflowSeriesM3s: '',
-        targetQOutM3s: 0.18,
-      };
-    case 'forestMulches':
-      return {
-        count: 3,
-        volumeEachM3: 8,
-        location: 'mid',
-      };
-    case 'swale':
-      return {
-        bottomWidthM: 0.5,
-        depthM: 0.5,
-        sideSlopeM: 2,
-        landCoverK: 12,
-        elevationProfile: '',
-      };
-    case 'stonefield':
-      return {
-        spacingM: 2,
-        holeDiameterM: 0.8,
-        holeDepthM: 1,
-        porosity: 0.35,
-        qInMaxM3s: 0.3,
-        slope: 0.03,
-        kStone: 35,
-        d50M: 0.08,
-      };
-    case 'flowPathChange':
-      return {
-        segmentType: 'hollow',
-        roughnessK: 25,
-      };
-  }
-}
-
-function renderMeasureEditor(
-  locale: Locale,
-  measure: MeasureState,
-  updateMeasure: (id: string, updater: (measure: MeasureState) => MeasureState) => void,
-  applyStorageSuggestion: () => void,
-): JSX.Element {
-  const setParam = (key: string, value: string | number) => {
-    updateMeasure(measure.id, (current) => ({
-      ...current,
-      params: {
-        ...current.params,
-        [key]: value,
-      },
-    }));
-  };
-
-  switch (measure.kind) {
-    case 'landUseChange':
-      return (
-        <div className="editor-grid">
-          <label>
-            {t(locale, 'measure.param.landUse')}
-            <select
-              value={String(measure.params.landUse ?? 'arable')}
-              onChange={(event) => setParam('landUse', (event.target as HTMLSelectElement).value)}
-            >
-              <option value="forest">{t(locale, 'map.landuse.forest')}</option>
-              <option value="grassland">{t(locale, 'map.landuse.grassland')}</option>
-              <option value="arable">{t(locale, 'map.landuse.arable')}</option>
-            </select>
-          </label>
-          <label>
-            {t(locale, 'measure.param.month')}
-            <input
-              type="number"
-              min={1}
-              max={12}
-              value={String(measure.params.month ?? '')}
-              onInput={(event) => setParam('month', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.mulchDirectSeed')}
-            <select
-              value={String(measure.params.mulchDirectSeed ?? 'no')}
-              onChange={(event) => setParam('mulchDirectSeed', (event.target as HTMLSelectElement).value)}
-            >
-              <option value="yes">{t(locale, 'common.yes')}</option>
-              <option value="no">{t(locale, 'common.no')}</option>
-            </select>
-          </label>
-          <label>
-            {t(locale, 'measure.param.tillageDirection')}
-            <select
-              value={String(measure.params.tillageDirection ?? 'contour-parallel')}
-              onChange={(event) => setParam('tillageDirection', (event.target as HTMLSelectElement).value)}
-            >
-              <option value="contour-parallel">{t(locale, 'measure.param.tillageDirection.contour')}</option>
-              <option value="downslope">{t(locale, 'measure.param.tillageDirection.downslope')}</option>
-              <option value="terraced">{t(locale, 'measure.param.tillageDirection.terraced')}</option>
-            </select>
-          </label>
-        </div>
-      );
-    case 'storageWithPipe':
-      return (
-        <div className="editor-grid">
-          <label>
-            {t(locale, 'measure.param.form')}
-            <select
-              value={String(measure.params.form ?? 'prism')}
-              onChange={(event) => setParam('form', (event.target as HTMLSelectElement).value)}
-            >
-              <option value="prism">{t(locale, 'measure.param.form.prism')}</option>
-              <option value="hollow">{t(locale, 'measure.param.form.hollow')}</option>
-            </select>
-          </label>
-          <label>
-            {t(locale, 'measure.param.depthM')}
-            <input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={String(measure.params.depthM ?? 1.2)}
-              onInput={(event) => setParam('depthM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.pipeDnMm')}
-            <input
-              type="number"
-              min={50}
-              step={10}
-              value={String(measure.params.pipeDnMm ?? 300)}
-              onInput={(event) => setParam('pipeDnMm', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.pipeLengthM')}
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={String(measure.params.pipeLengthM ?? 12)}
-              onInput={(event) => setParam('pipeLengthM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.targetQOutM3s')}
-            <input
-              type="number"
-              min={0.01}
-              step={0.01}
-              value={String(measure.params.targetQOutM3s ?? 0.18)}
-              onInput={(event) => setParam('targetQOutM3s', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.inflowDtH')}
-            <input
-              type="number"
-              min={0.01}
-              step={0.01}
-              value={String(measure.params.inflowDtH ?? 0.25)}
-              onInput={(event) => setParam('inflowDtH', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.inflowSeriesM3s')}
-            <input
-              value={String(measure.params.inflowSeriesM3s ?? '')}
-              onInput={(event) => setParam('inflowSeriesM3s', (event.target as HTMLInputElement).value)}
-              placeholder={t(locale, 'measure.param.inflowSeriesM3s.placeholder')}
-            />
-          </label>
-          <button type="button" onClick={applyStorageSuggestion}>
-            {t(locale, 'measure.param.suggestSize')}
-          </button>
-        </div>
-      );
-    case 'forestMulches':
-      return (
-        <div className="editor-grid">
-          <label>
-            {t(locale, 'measure.param.count')}
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={String(measure.params.count ?? 3)}
-              onInput={(event) => setParam('count', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.volumeEachM3')}
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={String(measure.params.volumeEachM3 ?? 8)}
-              onInput={(event) => setParam('volumeEachM3', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.location')}
-            <select
-              value={String(measure.params.location ?? 'mid')}
-              onChange={(event) => setParam('location', (event.target as HTMLSelectElement).value)}
-            >
-              <option value="top">{t(locale, 'measure.param.location.top')}</option>
-              <option value="mid">{t(locale, 'measure.param.location.mid')}</option>
-              <option value="low">{t(locale, 'measure.param.location.low')}</option>
-            </select>
-          </label>
-        </div>
-      );
-    case 'swale':
-      return (
-        <div className="editor-grid">
-          <label>
-            {t(locale, 'measure.param.bottomWidthM')}
-            <input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={String(measure.params.bottomWidthM ?? 0.5)}
-              onInput={(event) => setParam('bottomWidthM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.depthM')}
-            <input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={String(measure.params.depthM ?? 0.5)}
-              onInput={(event) => setParam('depthM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.sideSlopeM')}
-            <input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={String(measure.params.sideSlopeM ?? 2)}
-              onInput={(event) => setParam('sideSlopeM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.elevationProfile')}
-            <input
-              value={String(measure.params.elevationProfile ?? '')}
-              onInput={(event) => setParam('elevationProfile', (event.target as HTMLInputElement).value)}
-              placeholder={t(locale, 'measure.param.elevationProfile.placeholder')}
-            />
-          </label>
-        </div>
-      );
-    case 'stonefield':
-      return (
-        <div className="editor-grid">
-          <label>
-            {t(locale, 'measure.param.spacingM')}
-            <input
-              type="number"
-              min={0.2}
-              step={0.1}
-              value={String(measure.params.spacingM ?? 2)}
-              onInput={(event) => setParam('spacingM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.holeDiameterM')}
-            <input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={String(measure.params.holeDiameterM ?? 0.8)}
-              onInput={(event) => setParam('holeDiameterM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.holeDepthM')}
-            <input
-              type="number"
-              min={0.1}
-              step={0.1}
-              value={String(measure.params.holeDepthM ?? 1)}
-              onInput={(event) => setParam('holeDepthM', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.porosity')}
-            <input
-              type="number"
-              min={0.1}
-              max={1}
-              step={0.05}
-              value={String(measure.params.porosity ?? 0.35)}
-              onInput={(event) => setParam('porosity', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-        </div>
-      );
-    case 'flowPathChange':
-      return (
-        <div className="editor-grid">
-          <label>
-            {t(locale, 'measure.param.segmentType')}
-            <input
-              value={String(measure.params.segmentType ?? 'hollow')}
-              onInput={(event) => setParam('segmentType', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-          <label>
-            {t(locale, 'measure.param.roughnessK')}
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={String(measure.params.roughnessK ?? 25)}
-              onInput={(event) => setParam('roughnessK', (event.target as HTMLInputElement).value)}
-            />
-          </label>
-        </div>
-      );
-  }
-}
-
 function formatCurrency(localeTag: string, value: number): string {
   return new Intl.NumberFormat(localeTag, {
     style: 'currency',
@@ -2248,204 +1912,6 @@ function allocatedMeasureAreaShare(
     return rawShare;
   }
   return rawShare / totalShare;
-}
-
-function selectTargetMeasureAreaId(
-  catchment: Catchment,
-  targetSubcatchmentId: string,
-  measure: MeasureState,
-): string | null {
-  const targetSubcatchment = catchment.subcatchments.find((entry) => entry.id === targetSubcatchmentId);
-  if (!targetSubcatchment) {
-    return null;
-  }
-  const explicitTarget = measure.params.targetMeasureAreaId;
-  if (
-    typeof explicitTarget === 'string' &&
-    targetSubcatchment.measureAreas.some((measureArea) => measureArea.id === explicitTarget)
-  ) {
-    return explicitTarget;
-  }
-  return targetSubcatchment.measureAreas[0]?.id ?? null;
-}
-
-function buildEvaluableCatchment(
-  catchment: Catchment,
-  measures: MeasureState[],
-  subcatchmentPolygons: SubcatchmentPolygon[],
-  fallbackSubcatchmentId: string,
-): Catchment {
-  const measuresByAreaId = new Map<string, ScenarioMeasure[]>();
-
-  for (const measure of measures) {
-    if (!measure.enabled) {
-      continue;
-    }
-    const targetSubcatchmentId = findMeasureSubcatchmentId(
-      measure,
-      subcatchmentPolygons,
-      fallbackSubcatchmentId,
-    );
-    const converted = toScenarioMeasure(catchment, targetSubcatchmentId, measure);
-    const targetMeasureAreaId = selectTargetMeasureAreaId(catchment, targetSubcatchmentId, measure);
-    if (!converted || !targetMeasureAreaId) {
-      continue;
-    }
-    const bucket = measuresByAreaId.get(targetMeasureAreaId) ?? [];
-    bucket.push(converted);
-    measuresByAreaId.set(targetMeasureAreaId, bucket);
-  }
-
-  return {
-    ...catchment,
-    subcatchments: catchment.subcatchments.map((subcatchment) => ({
-      ...subcatchment,
-      measureAreas: subcatchment.measureAreas.map((measureArea) => ({
-        ...measureArea,
-        measures: [...measureArea.measures, ...(measuresByAreaId.get(measureArea.id) ?? [])],
-      })),
-    })),
-  };
-}
-
-function toScenarioMeasure(
-  catchment: Catchment,
-  targetSubcatchmentId: string,
-  measure: MeasureState,
-): ScenarioMeasure | null {
-  const targetSubcatchment = catchment.subcatchments.find((entry) => entry.id === targetSubcatchmentId);
-  const targetMeasureArea = targetSubcatchment?.measureAreas[0];
-  const summary = summarizeMeasure(measure);
-  const areaShare = targetSubcatchment ? measureAreaShare(summary.areaHa, targetSubcatchment.areaHa) : 0.15;
-  const baseFlowPath = targetMeasureArea?.flowPath ?? [];
-  const chainageM = baseFlowPath.reduce((sum, segment) => sum + segment.lengthM, 0) * 0.35;
-
-  switch (measure.kind) {
-    case 'landUseChange': {
-      const patchId = targetMeasureArea?.patches[0]?.id;
-      if (!patchId) {
-        return null;
-      }
-      return {
-        kind: 'landUseChange',
-        patchId,
-        cn: targetCnFromMeasure(measure),
-        areaUsedHa: Math.max(0.05, summary.areaHa),
-      };
-    }
-    case 'storageWithPipe':
-      return {
-        kind: 'storage',
-        shape:
-          measure.params.form === 'hollow'
-            ? {
-                form: 'hollow',
-                lengthM: Math.max(2, Math.sqrt(Math.max(summary.areaHa, 0.01) * 1e4)),
-                widthM: Math.max(2, Math.sqrt(Math.max(summary.areaHa, 0.01) * 1e4)),
-                hMaxM: readNumber(measure.params.depthM, 1.2),
-              }
-            : {
-                form: 'prism',
-                baseAreaM2: Math.max(20, Math.max(summary.areaHa, 0.01) * 1e4),
-                hMaxM: readNumber(measure.params.depthM, 1.2),
-              },
-        outlet: {
-          type: 'pipe',
-          dnMm: readNumber(measure.params.pipeDnMm, 300),
-          lengthM: readNumber(measure.params.pipeLengthM, 12),
-        },
-        areaUsedHa: Math.max(0.01, summary.areaHa),
-        excavationM3: summary.excavationM3,
-      };
-    case 'forestMulches': {
-      const count = Math.max(1, readNumber(measure.params.count, 3));
-      const volumeEachM3 = Math.max(1, readNumber(measure.params.volumeEachM3, 8));
-      const delayH = measure.params.location === 'top' ? 0.15 : measure.params.location === 'low' ? 0.75 : 0.4;
-      return {
-        kind: 'retentionGroup',
-        mode: 'physical',
-        elements: Array.from({ length: count }, (_, index) => ({
-          id: `${measure.id}-${index}`,
-          volumeM3: volumeEachM3,
-          areaShare: Math.min(0.9, 0.9 / count),
-          delayH,
-        })),
-        areaUsedHa: Math.max(0, summary.areaHa),
-        excavationM3: summary.excavationM3,
-      };
-    }
-    case 'swale':
-      return {
-        kind: 'swale',
-        chainageM,
-        landCoverK: readNumber(measure.params.landCoverK, 12),
-        lengthM: Math.max(10, summary.lengthM),
-        bottomWidthM: readNumber(measure.params.bottomWidthM, 0.5),
-        depthM: readNumber(measure.params.depthM, 0.5),
-        sideSlopeM: readNumber(measure.params.sideSlopeM, 2),
-        areaShare,
-        elevationProfileM: parseElevationProfile(measure.params.elevationProfile),
-        areaUsedHa: Math.max(0.01, summary.areaHa),
-      };
-    case 'stonefield': {
-      const areaM2 = Math.max(25, Math.max(summary.areaHa, 0.01) * 1e4);
-      const widthM = Math.sqrt(areaM2);
-      return {
-        kind: 'stonefield',
-        chainageM,
-        widthM,
-        lengthFlowM: widthM,
-        slope: readNumber(measure.params.slope, 0.03),
-        areaShare,
-        spacingM: readNumber(measure.params.spacingM, 2),
-        holeDiameterM: readNumber(measure.params.holeDiameterM, 0.8),
-        holeDepthM: readNumber(measure.params.holeDepthM, 1),
-        porosity: readNumber(measure.params.porosity, 0.35),
-        d50M: readNumber(measure.params.d50M, 0.08),
-        kStone: readNumber(measure.params.kStone, 35),
-        areaUsedHa: Math.max(0.01, summary.areaHa),
-      };
-    }
-    case 'flowPathChange':
-      return {
-        kind: 'flowPathChange',
-        flowPath: [
-          {
-            type: readFlowSegmentType(measure.params.segmentType),
-            lengthM: Math.max(summary.lengthM, 20),
-            slope: 0.03,
-            k: readNumber(measure.params.roughnessK, 25),
-            rHydM: 0.1,
-          },
-        ],
-      };
-  }
-}
-
-function targetCnFromMeasure(measure: MeasureState): number {
-  const landUse = String(measure.params.landUse ?? 'arable');
-  const baseCn = landUse === 'forest' ? 62 : landUse === 'grassland' ? 74 : 84;
-  const mulchReduction = measure.params.mulchDirectSeed === 'yes' ? 7 : 0;
-  const tillageReduction =
-    measure.params.tillageDirection === 'terraced'
-      ? 4
-      : measure.params.tillageDirection === 'contour-parallel'
-        ? 2
-        : 0;
-  return Math.max(40, baseCn - mulchReduction - tillageReduction);
-}
-
-function readFlowSegmentType(value: string | number | boolean | undefined): Exclude<FlowSegmentType, 'trapezoid'> {
-  switch (value) {
-    case 'sheet':
-    case 'rill':
-    case 'hollow':
-    case 'pipe':
-    case 'stonefield':
-      return value;
-    default:
-      return 'hollow';
-  }
 }
 
 function evaluateMeasureVisualState(

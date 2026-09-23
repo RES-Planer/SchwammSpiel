@@ -186,6 +186,41 @@ export const SWALE_CONTOUR_DZ_WARNING_M: HydrologyConstant = {
   source: 'docs/SPEC_hydrology.md Abschnitt 8',
 };
 
+export const FOREST_MULCH_DELAY_TOP_H: HydrologyConstant = {
+  id: 'C16',
+  value: 0.15,
+  status: 'expert-estimate',
+  source: 'apps/web/src/app.tsx TODO(DATA): Waldmulden Fließzeiten',
+};
+
+export const FOREST_MULCH_DELAY_MID_H: HydrologyConstant = {
+  id: 'C17',
+  value: 0.4,
+  status: 'expert-estimate',
+  source: 'apps/web/src/app.tsx TODO(DATA): Waldmulden Fließzeiten',
+};
+
+export const FOREST_MULCH_DELAY_LOW_H: HydrologyConstant = {
+  id: 'C18',
+  value: 0.75,
+  status: 'expert-estimate',
+  source: 'apps/web/src/app.tsx TODO(DATA): Waldmulden Fließzeiten',
+};
+
+export const FLOWPATH_CHANGE_SLOPE_DEFAULT: HydrologyConstant = {
+  id: 'C19',
+  value: 0.03,
+  status: 'expert-estimate',
+  source: 'apps/web/src/app.tsx TODO(DATA): Gefälle geänderter Fließwegabschnitt',
+};
+
+export const FLOWPATH_LOCATION_SHARE_DEFAULT: HydrologyConstant = {
+  id: 'C20',
+  value: 0.35,
+  status: 'expert-estimate',
+  source: 'apps/web/src/app.tsx TODO(DATA): Lage am Fließweg',
+};
+
 export const assumptions = [
   ASSUMPTION_A1,
   ASSUMPTION_A2,
