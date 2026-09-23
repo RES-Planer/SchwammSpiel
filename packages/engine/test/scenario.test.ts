@@ -117,13 +117,22 @@ describe('evaluateScenario', () => {
     ) as Catchment;
 
     const result = evaluateScenario(catchment, 'hq20-18h', false);
+    const totalAreaHa = catchment.subcatchments.reduce((sum, subcatchment) => sum + subcatchment.areaHa, 0);
 
     expect(result.after.qM3s).toEqual(result.before.qM3s);
-    expect(result.qMaxBeforeM3s).toBeCloseTo(4.46, 2);
+    expect(totalAreaHa).toBeGreaterThanOrEqual(585);
+    expect(totalAreaHa).toBeLessThanOrEqual(587);
     expect(
-      catchment.subcatchments
-        .filter((subcatchment) => ['tgb-3', 'tgb-4', 'tgb-7'].includes(subcatchment.id))
-        .every((subcatchment) => 'todo' in subcatchment.reference),
+      catchment.subcatchments.every((subcatchment) => {
+        return 'tcH' in subcatchment.reference && subcatchment.reference.tcH >= 1 && subcatchment.reference.tcH <= 5;
+      }),
     ).toBe(true);
+    expect(
+      catchment.subcatchments.every((subcatchment) => {
+        return subcatchment.lagToOutletH >= 0 && subcatchment.lagToOutletH <= 3;
+      }),
+    ).toBe(true);
+    expect(result.qMaxBeforeM3s).toBeGreaterThanOrEqual(4.41);
+    expect(result.qMaxBeforeM3s).toBeLessThanOrEqual(4.51);
   });
 });

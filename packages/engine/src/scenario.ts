@@ -30,6 +30,7 @@ export type ScenarioRainEvent = {
 export type ScenarioCnReference = {
   cn: number;
   tcH: number;
+  cn_status?: string;
   todo?: string;
 };
 

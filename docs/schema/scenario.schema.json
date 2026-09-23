@@ -42,6 +42,7 @@
           "properties": {
             "cn": { "type": "number", "minimum": 0, "maximum": 100 },
             "tcH": { "type": "number", "exclusiveMinimum": 0 },
+            "cn_status": { "type": "string" },
             "todo": { "type": "string" }
           }
         },

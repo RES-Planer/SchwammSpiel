@@ -32,6 +32,8 @@ CN je Teilfläche:
 2. Mulchdirektsaat (nur Acker): `CN_C = 85 − 0,47·Bedeckungsanteil`, nur anwenden, wenn kleiner als der Monatswert.
 3. Umrechnung von C auf die tatsächliche HBG: `adjustments.soil_group_from_C` (B exakt, D/A siehe Status dort).
 4. Bewirtschaftungsrichtung: Faktor `tillage_direction` (konturparallel 0,9675).
+   UI-Hinweis: Die Eingabefelder „Mulchdirektsaat“ und „Bewirtschaftungsrichtung“ dürfen nur für Acker- und
+   Grünlandnutzungen angeboten werden; die Engine filtert diese Fälle nicht selbst.
 
 Prüfwerte aus dem Anhang (HBG, Monat März): Mais C, Mulchdirektsaat + konturparallel → 94 → 84,86 → **82,1**;
 Grünland B konturparallel → 87 → 80,62 → **78,0**; Kleegras B konturparallel → 73 → 60,18 → **58,2**.

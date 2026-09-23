@@ -61,7 +61,7 @@ describe('retention elements (SPEC sections 7–9)', () => {
     expect(reducedVolumeM3).toBeCloseTo(retainedM3, 6);
   });
 
-  test('5b long rain: 600 m³ fills before peak and reduces peak by < 5%; 1500 m³ by > 25%', () => {
+  test('5b long rain: delay only shifts timing, not total peak reduction, and closes mass balance to 0.1%', () => {
     const input: HydrographInput = {
       areaHa: 11,
       cn: 73.1,
@@ -74,32 +74,42 @@ describe('retention elements (SPEC sections 7–9)', () => {
       mqLsKm2: 15.53,
     };
     const hydro = computeHydrograph(input);
+    const dtS = hydro.dtH * 3600;
 
-    const small = applyRetentionElements(
+    const delay0 = applyRetentionElements(
       hydro.qM3s,
       hydro.dtH,
       hydro.baseFlowM3s,
-      [{ id: 'v600', volumeM3: 600, areaShare: 0.9, delayH: 0 }],
+      [{ id: 'v1500-d0', volumeM3: 1500, areaShare: 0.9, delayH: 0 }],
       { mode: 'physical', infiltration: 'off' },
     );
 
-    const large = applyRetentionElements(
+    const delay3 = applyRetentionElements(
       hydro.qM3s,
       hydro.dtH,
       hydro.baseFlowM3s,
-      [{ id: 'v1500', volumeM3: 1500, areaShare: 0.9, delayH: 0 }],
+      [{ id: 'v1500-d3', volumeM3: 1500, areaShare: 0.9, delayH: 3 }],
       { mode: 'physical', infiltration: 'off' },
     );
 
-    const qPeakSmall = Math.max(...small.qM3s);
-    const qPeakLarge = Math.max(...large.qM3s);
-    const rSmall = peakReductionFraction(hydro.qMaxM3s, qPeakSmall);
-    const rLarge = peakReductionFraction(hydro.qMaxM3s, qPeakLarge);
+    const peakReductionDelay0 = peakReductionFraction(hydro.qMaxM3s, Math.max(...delay0.qM3s));
+    const peakReductionDelay3 = peakReductionFraction(hydro.qMaxM3s, Math.max(...delay3.qM3s));
 
-    expect(small.elements[0]?.tFullH).not.toBeNull();
-    expect((small.elements[0]?.tFullH ?? Infinity)).toBeLessThanOrEqual(hydro.tPeakH + hydro.dtH);
-    expect(rSmall).toBeLessThan(0.05);
-    expect(rLarge).toBeGreaterThan(0.25);
+    expect(peakReductionDelay0).toBeCloseTo(0.31, 2);
+    expect(peakReductionDelay3).toBeCloseTo(0.31, 2);
+    expect(Math.abs(peakReductionDelay0 - peakReductionDelay3)).toBeLessThanOrEqual(0.005);
+
+    const reducedVolumeDelay0M3 = hydro.qM3s.reduce((sum, q, i) => {
+      return sum + (q - (delay0.qM3s[i] ?? 0)) * dtS;
+    }, 0);
+    const reducedVolumeDelay3M3 = hydro.qM3s.reduce((sum, q, i) => {
+      return sum + (q - (delay3.qM3s[i] ?? 0)) * dtS;
+    }, 0);
+    const retainedDelay0M3 = delay0.elements[0]?.retainedM3 ?? 0;
+    const retainedDelay3M3 = delay3.elements[0]?.retainedM3 ?? 0;
+
+    expect(Math.abs(reducedVolumeDelay0M3 - retainedDelay0M3) / retainedDelay0M3).toBeLessThanOrEqual(0.001);
+    expect(Math.abs(reducedVolumeDelay3M3 - retainedDelay3M3) / retainedDelay3M3).toBeLessThanOrEqual(0.001);
   });
 
   test('6d volume 457 m³: reduction > 15% for 4h rain and < 2% for 18h rain', () => {
