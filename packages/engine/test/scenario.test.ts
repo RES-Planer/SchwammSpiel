@@ -143,15 +143,23 @@ describe('evaluateScenario', () => {
     expect('tcH' in (byId.get('tgb-1')?.reference ?? {})).toBe(true);
     expect('tcH' in (byId.get('tgb-2')?.reference ?? {})).toBe(true);
     expect('tcH' in (byId.get('tgb-6')?.reference ?? {})).toBe(true);
-    if ('tcH' in (byId.get('tgb-1')?.reference ?? {})) {
-      expect(byId.get('tgb-1')?.reference.tcH).toBeCloseTo(1.49, 2);
+    const tgb1Reference = byId.get('tgb-1')?.reference;
+    if (!tgb1Reference || !('tcH' in tgb1Reference)) {
+      expect.fail('Expected tgb-1 reference.tcH to be present');
     }
-    if ('tcH' in (byId.get('tgb-2')?.reference ?? {})) {
-      expect(byId.get('tgb-2')?.reference.tcH).toBeCloseTo(3.36, 2);
+    expect(tgb1Reference.tcH).toBeCloseTo(1.49, 2);
+
+    const tgb2Reference = byId.get('tgb-2')?.reference;
+    if (!tgb2Reference || !('tcH' in tgb2Reference)) {
+      expect.fail('Expected tgb-2 reference.tcH to be present');
     }
-    if ('tcH' in (byId.get('tgb-6')?.reference ?? {})) {
-      expect(byId.get('tgb-6')?.reference.tcH).toBeCloseTo(1.88, 2);
+    expect(tgb2Reference.tcH).toBeCloseTo(3.36, 2);
+
+    const tgb6Reference = byId.get('tgb-6')?.reference;
+    if (!tgb6Reference || !('tcH' in tgb6Reference)) {
+      expect.fail('Expected tgb-6 reference.tcH to be present');
     }
+    expect(tgb6Reference.tcH).toBeCloseTo(1.88, 2);
     expect(result.qMaxBeforeM3s).toBeCloseTo(4.4508, 2);
   });
 });
