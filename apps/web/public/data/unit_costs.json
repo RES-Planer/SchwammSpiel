@@ -1,0 +1,9 @@
+{
+  "currency": "EUR",
+  "excavationPerM3Eur": 24,
+  "areaUsePerM2Eur": 1.8,
+  "forestMulchPerItemEur": 180,
+  "stonefieldPerM2Eur": 32,
+  "flowPathChangePerM2Eur": 4,
+  "noteKey": "result.cost.todoData"
+}
