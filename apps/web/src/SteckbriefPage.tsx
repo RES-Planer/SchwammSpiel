@@ -1,5 +1,5 @@
 import type { Catchment } from '@schwammspiel/engine';
-import { useEffect, useMemo, useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 
 import { locales, type Locale, t } from './i18n';
 import { buildDataUrl, resolveCatchmentId } from './mapData';
@@ -12,12 +12,10 @@ type Props = {
 };
 
 export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
-  const locale = useMemo<Locale>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const candidate = params.get('lang');
-    return locales.includes(candidate as Locale) ? (candidate as Locale) : 'de';
-  }, []);
-  const catchmentId = useMemo(() => resolveCatchmentId(window.location.search), []);
+  const localeParams = new URLSearchParams(window.location.search);
+  const localeCandidate = localeParams.get('lang');
+  const locale = locales.includes(localeCandidate as Locale) ? (localeCandidate as Locale) : 'de';
+  const catchmentId = resolveCatchmentId(window.location.search);
   const [catchment, setCatchment] = useState<Catchment | null>(null);
   const [measures, setMeasures] = useState<MeasureState[] | null>(null);
   const [loadErrorKey, setLoadErrorKey] = useState('');
@@ -56,9 +54,6 @@ export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
   useEffect(() => {
     let cancelled = false;
     async function loadCatchment(): Promise<void> {
-      if (!scenarioPayload) {
-        return;
-      }
       try {
         const response = await fetch(buildDataUrl(import.meta.env.BASE_URL, catchmentId, 'catchment.json'));
         if (!response.ok) {
@@ -79,7 +74,7 @@ export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [catchmentId, scenarioPayload]);
+  }, [catchmentId]);
 
   return (
     <main className="steckbrief-shell">
@@ -89,7 +84,7 @@ export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
           <button type="button" onClick={() => window.print()}>
             {t(locale, 'steckbrief.print')}
           </button>
-          <a href={buildBackToAppUrl(scenarioPayload, rainEventId)}>{t(locale, 'steckbrief.back')}</a>
+          <a href={buildBackToAppUrl(scenarioPayload, rainEventId, locale)}>{t(locale, 'steckbrief.back')}</a>
         </div>
       </header>
 
@@ -142,14 +137,22 @@ function resolveRainEventLabel(catchment: Catchment, rainEventId: string | null)
   return selected?.name ?? selected?.id ?? '–';
 }
 
-function buildBackToAppUrl(scenarioPayload: string | null, rainEventId: string | null): string {
-  if (!scenarioPayload) {
-    return `${window.location.pathname}${window.location.search}`;
+function buildBackToAppUrl(scenarioPayload: string | null, rainEventId: string | null, locale: Locale): string {
+  const url = new URL(window.location.href);
+  const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
+  const steckbriefQuery = hash.startsWith('/steckbrief') ? hash.split('?')[1] ?? '' : '';
+  const params = new URLSearchParams(steckbriefQuery);
+  if (!params.get('scenario') && scenarioPayload) {
+    params.set('scenario', scenarioPayload);
   }
-  const params = new URLSearchParams();
-  params.set('scenario', scenarioPayload);
-  if (rainEventId) {
+  if (!params.get('rainEventId') && rainEventId) {
     params.set('rainEventId', rainEventId);
   }
-  return `${window.location.pathname}${window.location.search}#${params.toString()}`;
+  url.searchParams.set('lang', locale);
+  if (!scenarioPayload) {
+    url.hash = '';
+    return url.toString();
+  }
+  url.hash = params.toString();
+  return url.toString();
 }
