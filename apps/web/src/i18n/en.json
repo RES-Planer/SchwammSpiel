@@ -6,7 +6,7 @@
   "app.language.en": "English",
   "app.mapLabel": "Map",
   "app.scenarioNote": "Scenario comparison, not a forecast",
-  "map.attribution": "© OpenStreetMap contributors",
+  "map.attribution": "Sources:",
   "map.layers": "Layers",
   "map.legend": "Legend",
   "map.legend.empty": "No layer is currently visible.",

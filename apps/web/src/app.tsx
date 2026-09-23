@@ -30,6 +30,7 @@ import {
   type LayerManifest,
   type SubcatchmentDetails,
 } from './mapData';
+import { buildManifestLayer, buildManifestSource } from './manifestLayers';
 import {
   buildRainChartSeries,
   estimateFillTimeH,
@@ -64,19 +65,14 @@ import './app.css';
 
 const mapStyle: maplibregl.StyleSpecification = {
   version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
+  sources: {},
   layers: [
     {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm',
+      id: 'background',
+      type: 'background',
+      paint: {
+        'background-color': '#f8fafc',
+      },
     },
   ],
 };
@@ -455,42 +451,8 @@ export function App() {
     for (const layer of manifest.layers) {
       const sourceId = sourceIdFor(layer.id);
       const layerId = layerIdFor(layer.id);
-      const paint = layer.style?.paint as Record<string, unknown> | undefined;
-      const layout = {
-        visibility: layer.visibleByDefault === false ? 'none' : 'visible',
-        ...(layer.style?.layout ?? {}),
-      } as Record<string, unknown>;
-
-      if (layer.type === 'geojson') {
-        map.addSource(sourceId, {
-          type: 'geojson',
-          data: buildDataUrl(import.meta.env.BASE_URL, catchmentId, layer.path),
-        });
-        map.addLayer({
-          id: layerId,
-          type: layer.layerType,
-          source: sourceId,
-          paint,
-          layout,
-          minzoom: layer.minzoom,
-          maxzoom: layer.maxzoom,
-        } as maplibregl.AddLayerObject);
-      } else {
-        map.addSource(sourceId, {
-          type: 'image',
-          url: buildDataUrl(import.meta.env.BASE_URL, catchmentId, layer.path),
-          coordinates: layer.coordinates,
-        });
-        map.addLayer({
-          id: layerId,
-          type: layer.layerType,
-          source: sourceId,
-          paint,
-          layout,
-          minzoom: layer.minzoom,
-          maxzoom: layer.maxzoom,
-        } as maplibregl.AddLayerObject);
-      }
+      map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId, locale));
+      map.addLayer(buildManifestLayer(layer, layerId, sourceId));
 
       addedLayerIds.push(layerId);
       addedSourceIds.push(sourceId);
@@ -505,7 +467,7 @@ export function App() {
       addedLayerIdsRef.current = [];
       addedSourceIdsRef.current = [];
     };
-  }, [catchmentId, manifest, mapReady]);
+  }, [catchmentId, locale, manifest, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;

@@ -17,6 +17,46 @@
   ],
   "layers": [
     {
+      "id": "basemap-topplusopen",
+      "name": {
+        "de": "Basiskarte TopPlusOpen (BKG)",
+        "cs": "Základní mapa TopPlusOpen (BKG)",
+        "en": "TopPlusOpen base map (BKG)"
+      },
+      "type": "raster",
+      "layerType": "raster",
+      "tiles": [
+        "https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web/default/WebMercatorQuad/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "visibleByDefault": true,
+      "attribution": {
+        "de": "TopPlusOpen (BKG), CC BY 4.0",
+        "cs": "TopPlusOpen (BKG), CC BY 4.0",
+        "en": "TopPlusOpen (BKG), CC BY 4.0"
+      }
+    },
+    {
+      "id": "basemap-openfreemap",
+      "name": {
+        "de": "Basiskarte OpenFreeMap",
+        "cs": "Základní mapa OpenFreeMap",
+        "en": "OpenFreeMap base map"
+      },
+      "type": "raster",
+      "layerType": "raster",
+      "tiles": [
+        "https://tiles.openfreemap.org/styles/liberty/{z}/{x}/{y}.png"
+      ],
+      "tileSize": 256,
+      "visibleByDefault": false,
+      "attribution": {
+        "de": "OpenFreeMap, OpenMapTiles, OpenStreetMap-Mitwirkende (ODbL)",
+        "cs": "OpenFreeMap, OpenMapTiles, přispěvatelé OpenStreetMap (ODbL)",
+        "en": "OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL)"
+      }
+    },
+    {
       "id": "hillshade",
       "name": {
         "de": "Schummerung",
