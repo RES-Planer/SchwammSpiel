@@ -31,6 +31,14 @@ h1,
   max-width: 12rem;
 }
 
+button {
+  border: 1px solid #94a3b8;
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.7rem;
+  background: #fff;
+  color: #0f172a;
+}
+
 label,
 .panel h2,
 .details-list dt {
@@ -68,6 +76,91 @@ label,
   gap: 0.5rem;
   align-items: center;
   font-weight: 400;
+}
+
+.measures-panel {
+  align-content: start;
+}
+
+.measure-tool-grid,
+.scenario-actions,
+.draw-actions,
+.editor-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.tool-button.is-active {
+  border-color: #0369a1;
+  background: #e0f2fe;
+}
+
+.draw-status {
+  border: 1px solid #bae6fd;
+  border-radius: 0.6rem;
+  padding: 0.6rem;
+  background: #f0f9ff;
+}
+
+.draw-status p {
+  margin: 0;
+}
+
+.measure-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.measure-card {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.6rem;
+  padding: 0.6rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.measure-card-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.measure-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.6rem;
+  margin: 0;
+}
+
+.measure-metrics div {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.measure-metrics dd {
+  margin: 0;
+}
+
+.measure-editor h3 {
+  margin: 0;
+}
+
+.editor-grid label {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.warning-list {
+  margin: 0;
+  padding-left: 1rem;
+  color: #991b1b;
+}
+
+.hint-text {
+  margin: 0;
+  color: #0f766e;
 }
 
 .legend-list,
@@ -167,7 +260,7 @@ label,
   }
 
   .map-layout {
-    grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-columns: minmax(17rem, 22rem) minmax(0, 1fr) minmax(16rem, 20rem);
     align-items: start;
   }
 

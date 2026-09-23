@@ -1,6 +1,16 @@
+import {
+  analyzeStonefieldHydraulics,
+  sizeStorageForTarget,
+  stonefieldGeometry,
+  swaleGeometry,
+  validateSwaleContourAlignment,
+} from '@schwammspiel/engine';
 import * as maplibregl from 'maplibre-gl';
+import type { JSX } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
+import { geodesicLengthM, geodesicPolygonAreaM2, type LngLat } from './geodesy';
+import { locales, type Locale, t } from './i18n';
 import {
   buildDataUrl,
   buildManifestUrl,
@@ -13,7 +23,19 @@ import {
   type LayerManifest,
   type SubcatchmentDetails,
 } from './mapData';
-import { locales, type Locale, t } from './i18n';
+import {
+  commitHistoryState,
+  createHistoryState,
+  createInitialScenarioState,
+  fromShareFragment,
+  redoHistoryState,
+  toShareFragment,
+  undoHistoryState,
+  type HistoryState,
+  type MeasureKind,
+  type MeasureState,
+  type ScenarioState,
+} from './scenarioState';
 import './app.css';
 
 const mapStyle: maplibregl.StyleSpecification = {
@@ -35,6 +57,45 @@ const mapStyle: maplibregl.StyleSpecification = {
   ],
 };
 
+type DrawMode = {
+  kind: MeasureKind;
+  geometryType: 'Polygon' | 'LineString' | null;
+};
+
+type MeasureSummary = {
+  areaHa: number;
+  lengthM: number;
+  volumeM3: number;
+  excavationM3: number;
+  warnings: string[];
+};
+
+type MapFeature =
+  | {
+      type: 'Feature';
+      properties: Record<string, boolean | string>;
+      geometry: { type: 'Polygon'; coordinates: [number, number][][] };
+    }
+  | {
+      type: 'Feature';
+      properties: Record<string, boolean | string>;
+      geometry: { type: 'LineString'; coordinates: [number, number][] };
+    };
+
+type MapFeatureCollection = {
+  type: 'FeatureCollection';
+  features: MapFeature[];
+};
+
+const toolOrder: DrawMode[] = [
+  { kind: 'landUseChange', geometryType: 'Polygon' },
+  { kind: 'storageWithPipe', geometryType: 'Polygon' },
+  { kind: 'forestMulches', geometryType: null },
+  { kind: 'swale', geometryType: 'LineString' },
+  { kind: 'stonefield', geometryType: 'Polygon' },
+  { kind: 'flowPathChange', geometryType: 'LineString' },
+];
+
 export function App() {
   const [locale, setLocale] = useState<Locale>('de');
   const [mapReady, setMapReady] = useState(false);
@@ -43,18 +104,51 @@ export function App() {
   const [selectedSubcatchment, setSelectedSubcatchment] = useState<SubcatchmentDetails | null>(null);
   const [loadingState, setLoadingState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState('');
+  const [shareMessage, setShareMessage] = useState('');
+  const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
+  const [draftCoordinates, setDraftCoordinates] = useState<LngLat[]>([]);
+  const [selectedMeasureId, setSelectedMeasureId] = useState<string | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const scaleControlRef = useRef<maplibregl.ScaleControl | null>(null);
   const attributionControlRef = useRef<maplibregl.AttributionControl | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const addedLayerIdsRef = useRef<string[]>([]);
   const addedSourceIdsRef = useRef<string[]>([]);
   const catchmentId = useMemo(() => resolveCatchmentId(window.location.search), []);
+  const [scenarioHistory, setScenarioHistory] = useState<HistoryState<ScenarioState>>(() =>
+    createHistoryState(createInitialScenarioState(catchmentId)),
+  );
+  const scenario = scenarioHistory.present;
   const localeTag = locale === 'cs' ? 'cs-CZ' : locale === 'en' ? 'en-US' : 'de-DE';
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(localeTag, { maximumFractionDigits: 1 }),
     [localeTag],
   );
+
+  useEffect(() => {
+    setScenarioHistory(createHistoryState(createInitialScenarioState(catchmentId)));
+  }, [catchmentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fromShareFragment(window.location.hash)
+      .then((sharedState) => {
+        if (cancelled || !sharedState || sharedState.catchmentId !== catchmentId) {
+          return;
+        }
+        setScenarioHistory(createHistoryState(sharedState));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setShareMessage(t(locale, 'scenario.share.invalid'));
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [catchmentId, locale]);
 
   useEffect(() => {
     const mapElement = mapElementRef.current;
@@ -241,6 +335,11 @@ export function App() {
     }
 
     const handleClick = (event: maplibregl.MapMouseEvent) => {
+      if (drawMode) {
+        const clicked: LngLat = [event.lngLat.lng, event.lngLat.lat];
+        setDraftCoordinates((current) => [...current, clicked]);
+        return;
+      }
       const feature = map.queryRenderedFeatures(event.point, {
         layers: [layerIdFor(inspectableLayer.id)],
       })[0];
@@ -255,7 +354,118 @@ export function App() {
     return () => {
       map.off('click', handleClick);
     };
-  }, [manifest, mapReady]);
+  }, [drawMode, manifest, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) {
+      return;
+    }
+
+    const sourceId = 'scenario-measures-source';
+    const draftSourceId = 'scenario-draft-source';
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: emptyFeatureCollection(),
+      });
+      map.addLayer({
+        id: 'scenario-measures-fill',
+        type: 'fill',
+        source: sourceId,
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: {
+          'fill-color': '#0ea5e9',
+          'fill-outline-color': '#0369a1',
+          'fill-opacity': ['case', ['boolean', ['get', 'enabled'], true], 0.22, 0.08],
+        },
+      });
+      map.addLayer({
+        id: 'scenario-measures-line',
+        type: 'line',
+        source: sourceId,
+        filter: ['==', ['geometry-type'], 'LineString'],
+        paint: {
+          'line-color': '#0369a1',
+          'line-width': 3,
+          'line-opacity': ['case', ['boolean', ['get', 'enabled'], true], 0.95, 0.35],
+        },
+      });
+    }
+
+    if (!map.getSource(draftSourceId)) {
+      map.addSource(draftSourceId, {
+        type: 'geojson',
+        data: emptyFeatureCollection(),
+      });
+      map.addLayer({
+        id: 'scenario-draft-line',
+        type: 'line',
+        source: draftSourceId,
+        paint: {
+          'line-color': '#f97316',
+          'line-width': 3,
+          'line-dasharray': [2, 2],
+        },
+      });
+      map.addLayer({
+        id: 'scenario-draft-fill',
+        type: 'fill',
+        source: draftSourceId,
+        paint: {
+          'fill-color': '#fb923c',
+          'fill-opacity': 0.2,
+        },
+      });
+    }
+  }, [mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) {
+      return;
+    }
+
+    const source = map.getSource('scenario-measures-source') as maplibregl.GeoJSONSource | undefined;
+    if (!source) {
+      return;
+    }
+
+    source.setData(measuresToFeatureCollection(scenario.measures));
+  }, [mapReady, scenario.measures]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) {
+      return;
+    }
+
+    const source = map.getSource('scenario-draft-source') as maplibregl.GeoJSONSource | undefined;
+    if (!source) {
+      return;
+    }
+
+    source.setData(draftToFeatureCollection(drawMode, draftCoordinates));
+  }, [drawMode, draftCoordinates, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) {
+      return;
+    }
+
+    if (drawMode) {
+      map.doubleClickZoom.disable();
+      map.getCanvas().style.cursor = 'crosshair';
+      return () => {
+        map.doubleClickZoom.enable();
+        map.getCanvas().style.cursor = '';
+      };
+    }
+
+    map.getCanvas().style.cursor = '';
+    return undefined;
+  }, [drawMode, mapReady]);
 
   useEffect(() => {
     document.title = t(locale, 'app.title');
@@ -263,6 +473,161 @@ export function App() {
   }, [locale]);
 
   const visibleLayers = manifest?.layers.filter((layer) => layerVisibility[layer.id] ?? layer.visibleByDefault ?? true) ?? [];
+  const selectedMeasure = scenario.measures.find((measure) => measure.id === selectedMeasureId) ?? null;
+
+  const applyScenarioUpdate = (updater: (current: ScenarioState) => ScenarioState) => {
+    setScenarioHistory((current) => commitHistoryState(current, updater(current.present)));
+  };
+
+  const addMeasure = (kind: MeasureKind, geometry: MeasureState['geometry']) => {
+    const id = `${kind}-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 6)}`;
+    const measure: MeasureState = {
+      id,
+      kind,
+      enabled: true,
+      geometry,
+      params: defaultParams(kind),
+    };
+
+    applyScenarioUpdate((current) => ({
+      ...current,
+      measures: [...current.measures, measure],
+    }));
+    setSelectedMeasureId(id);
+  };
+
+  const startTool = (mode: DrawMode) => {
+    if (mode.geometryType === null) {
+      addMeasure(mode.kind, null);
+      return;
+    }
+    setDrawMode(mode);
+    setDraftCoordinates([]);
+  };
+
+  const finishDrawing = () => {
+    if (!drawMode || !drawMode.geometryType) {
+      return;
+    }
+
+    if (drawMode.geometryType === 'Polygon') {
+      if (draftCoordinates.length < 3) {
+        return;
+      }
+      addMeasure(drawMode.kind, {
+        type: 'Polygon',
+        coordinates: closeRing(draftCoordinates),
+      });
+    } else {
+      if (draftCoordinates.length < 2) {
+        return;
+      }
+      addMeasure(drawMode.kind, {
+        type: 'LineString',
+        coordinates: draftCoordinates,
+      });
+    }
+
+    setDrawMode(null);
+    setDraftCoordinates([]);
+  };
+
+  const cancelDrawing = () => {
+    setDrawMode(null);
+    setDraftCoordinates([]);
+  };
+
+  const deleteMeasure = (id: string) => {
+    applyScenarioUpdate((current) => ({
+      ...current,
+      measures: current.measures.filter((measure) => measure.id !== id),
+    }));
+    if (selectedMeasureId === id) {
+      setSelectedMeasureId(null);
+    }
+  };
+
+  const updateMeasure = (id: string, updater: (measure: MeasureState) => MeasureState) => {
+    applyScenarioUpdate((current) => ({
+      ...current,
+      measures: current.measures.map((measure) => (measure.id === id ? updater(measure) : measure)),
+    }));
+  };
+
+  const applyStorageSuggestion = () => {
+    if (!selectedMeasure || selectedMeasure.kind !== 'storageWithPipe') {
+      return;
+    }
+
+    const depthM = readNumber(selectedMeasure.params.depthM, 1.2);
+    const pipeDnMm = readNumber(selectedMeasure.params.pipeDnMm, 300);
+    const pipeLengthM = readNumber(selectedMeasure.params.pipeLengthM, 12);
+    const areaHa = selectedSubcatchment?.areaHa ?? 50;
+    const qPeak = Math.max(0.05, areaHa * 0.0045);
+    const inflow = [0, qPeak * 0.25, qPeak * 0.65, qPeak, qPeak * 0.75, qPeak * 0.4, qPeak * 0.1, 0];
+    const targetQOutM3s = readNumber(selectedMeasure.params.targetQOutM3s, Math.max(0.03, qPeak * 0.35));
+    const suggested = sizeStorageForTarget(
+      inflow,
+      0.25,
+      { type: 'pipe', dnMm: pipeDnMm, lengthM: pipeLengthM },
+      depthM,
+      targetQOutM3s,
+    );
+
+    updateMeasure(selectedMeasure.id, (measure) => ({
+      ...measure,
+      params: {
+        ...measure.params,
+        suggestedVolumeM3: Number(suggested.toFixed(1)),
+      },
+    }));
+  };
+
+  const saveScenario = () => {
+    const json = JSON.stringify(scenario, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${scenario.catchmentId}-scenario.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const loadScenarioFromFile = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result)) as ScenarioState;
+        if (parsed.version !== 1 || !Array.isArray(parsed.measures)) {
+          throw new Error('invalid');
+        }
+        setScenarioHistory(createHistoryState(parsed));
+        setSelectedMeasureId(null);
+        setShareMessage('');
+      } catch {
+        setShareMessage(t(locale, 'scenario.file.invalid'));
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const shareScenario = async () => {
+    const fragment = await toShareFragment(scenario);
+    const url = new URL(window.location.href);
+    url.hash = fragment;
+    window.history.replaceState(null, '', url.toString());
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url.toString());
+    }
+    setShareMessage(t(locale, 'scenario.share.copied'));
+  };
+
+  const draftLengthM = geodesicLengthM(draftCoordinates);
+  const draftAreaHa = drawMode?.geometryType === 'Polygon' ? geodesicPolygonAreaM2(closeRing(draftCoordinates)) / 1e4 : 0;
 
   return (
     <main className="app-shell">
@@ -292,7 +657,78 @@ export function App() {
       <p className="scenario-note">{t(locale, 'app.scenarioNote')}</p>
 
       <section className="map-layout">
-        <aside className="panel">
+        <aside className="panel measures-panel">
+          <h2>{t(locale, 'measure.toolbar.title')}</h2>
+          <div className="measure-tool-grid">
+            {toolOrder.map((tool) => (
+              <button
+                key={tool.kind}
+                type="button"
+                className={`tool-button${drawMode?.kind === tool.kind ? ' is-active' : ''}`}
+                onClick={() => startTool(tool)}
+              >
+                {t(locale, `measure.tool.${tool.kind}`)}
+              </button>
+            ))}
+          </div>
+
+          {drawMode ? (
+            <div className="draw-status">
+              <p>
+                {t(locale, 'measure.draw.active')}: {t(locale, `measure.tool.${drawMode.kind}`)}
+              </p>
+              <p>
+                {drawMode.geometryType === 'Polygon'
+                  ? `${t(locale, 'measure.metric.areaHa')}: ${formatValue(numberFormatter, draftAreaHa, 'ha')}`
+                  : `${t(locale, 'measure.metric.lengthM')}: ${formatValue(numberFormatter, draftLengthM, 'm')}`}
+              </p>
+              <div className="draw-actions">
+                <button type="button" onClick={finishDrawing}>
+                  {t(locale, 'measure.draw.finish')}
+                </button>
+                <button type="button" onClick={cancelDrawing}>
+                  {t(locale, 'measure.draw.cancel')}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="scenario-actions">
+            <button
+              type="button"
+              onClick={() => setScenarioHistory((current) => undoHistoryState(current))}
+              disabled={scenarioHistory.past.length === 0}
+            >
+              {t(locale, 'scenario.undo')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setScenarioHistory((current) => redoHistoryState(current))}
+              disabled={scenarioHistory.future.length === 0}
+            >
+              {t(locale, 'scenario.redo')}
+            </button>
+            <button type="button" onClick={saveScenario}>
+              {t(locale, 'scenario.save')}
+            </button>
+            <button type="button" onClick={() => fileInputRef.current?.click()}>
+              {t(locale, 'scenario.load')}
+            </button>
+            <button type="button" onClick={() => void shareScenario()}>
+              {t(locale, 'scenario.share')}
+            </button>
+            <input
+              ref={fileInputRef}
+              className="sr-only"
+              type="file"
+              accept="application/json"
+              onChange={(event) =>
+                loadScenarioFromFile((event.target as HTMLInputElement).files?.[0] ?? null)
+              }
+            />
+            {shareMessage ? <p className="hint-text">{shareMessage}</p> : null}
+          </div>
+
           <h2>{t(locale, 'map.layers')}</h2>
           <fieldset className="layer-list">
             <legend className="sr-only">{t(locale, 'map.layers')}</legend>
@@ -326,6 +762,74 @@ export function App() {
           ) : (
             <p className="panel-empty">{t(locale, 'map.legend.empty')}</p>
           )}
+
+          <h2>{t(locale, 'measure.cards.title')}</h2>
+          {scenario.measures.length > 0 ? (
+            <ul className="measure-list">
+              {scenario.measures.map((measure) => {
+                const summary = summarizeMeasure(measure);
+                return (
+                  <li key={measure.id} className="measure-card">
+                    <label className="layer-toggle">
+                      <input
+                        type="checkbox"
+                        checked={measure.enabled}
+                        onChange={() =>
+                          updateMeasure(measure.id, (current) => ({
+                            ...current,
+                            enabled: !current.enabled,
+                          }))
+                        }
+                      />
+                      <span>{t(locale, `measure.tool.${measure.kind}`)}</span>
+                    </label>
+                    <div className="measure-card-actions">
+                      <button type="button" onClick={() => setSelectedMeasureId(measure.id)}>
+                        {t(locale, 'measure.card.edit')}
+                      </button>
+                      <button type="button" onClick={() => deleteMeasure(measure.id)}>
+                        {t(locale, 'measure.card.delete')}
+                      </button>
+                    </div>
+                    <dl className="measure-metrics">
+                      <div>
+                        <dt>{t(locale, 'measure.metric.areaHa')}</dt>
+                        <dd>{formatValue(numberFormatter, summary.areaHa, 'ha')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'measure.metric.lengthM')}</dt>
+                        <dd>{formatValue(numberFormatter, summary.lengthM, 'm')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'measure.metric.volumeM3')}</dt>
+                        <dd>{formatValue(numberFormatter, summary.volumeM3, 'm³')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'measure.metric.excavationM3')}</dt>
+                        <dd>{formatValue(numberFormatter, summary.excavationM3, 'm³')}</dd>
+                      </div>
+                    </dl>
+                    {summary.warnings.length > 0 ? (
+                      <ul className="warning-list">
+                        {summary.warnings.map((warning) => (
+                          <li key={warning}>{t(locale, `measure.warning.${warning}`)}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="panel-empty">{t(locale, 'measure.cards.empty')}</p>
+          )}
+
+          {selectedMeasure ? (
+            <section className="measure-editor">
+              <h3>{t(locale, 'measure.editor.title')}</h3>
+              {renderMeasureEditor(locale, selectedMeasure, updateMeasure, applyStorageSuggestion)}
+            </section>
+          ) : null}
         </aside>
 
         <div className="map-frame">
@@ -440,5 +944,527 @@ function legendStyle(layer: LayerManifest): { background?: string; borderColor?:
       return {
         background: `linear-gradient(90deg, ${layer.legend.colorRamp[0]}, ${layer.legend.colorRamp[1]})`,
       };
+  }
+}
+
+function emptyFeatureCollection(): MapFeatureCollection {
+  return {
+    type: 'FeatureCollection',
+    features: [],
+  };
+}
+
+function measuresToFeatureCollection(measures: MeasureState[]): MapFeatureCollection {
+  const features: MapFeature[] = [];
+  for (const measure of measures) {
+    if (!measure.geometry) {
+      continue;
+    }
+    if (measure.geometry.type === 'Polygon') {
+      features.push({
+        type: 'Feature',
+        properties: {
+          id: measure.id,
+          kind: measure.kind,
+          enabled: measure.enabled,
+        },
+        geometry: {
+          type: 'Polygon',
+          coordinates: [measure.geometry.coordinates],
+        },
+      });
+      continue;
+    }
+    features.push({
+      type: 'Feature',
+      properties: {
+        id: measure.id,
+        kind: measure.kind,
+        enabled: measure.enabled,
+      },
+      geometry: {
+        type: 'LineString',
+        coordinates: measure.geometry.coordinates,
+      },
+    });
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
+}
+
+function draftToFeatureCollection(
+  drawMode: DrawMode | null,
+  coordinates: LngLat[],
+): MapFeatureCollection {
+  if (!drawMode?.geometryType || coordinates.length === 0) {
+    return emptyFeatureCollection();
+  }
+
+  if (drawMode.geometryType === 'Polygon') {
+    return {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: { draft: true },
+          geometry: {
+            type: 'Polygon',
+            coordinates: [closeRing(coordinates)],
+          },
+        },
+      ],
+    };
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: { draft: true },
+        geometry: {
+          type: 'LineString',
+          coordinates,
+        },
+      },
+    ],
+  };
+}
+
+function closeRing(coordinates: LngLat[]): LngLat[] {
+  const first = coordinates[0];
+  const last = coordinates[coordinates.length - 1];
+  if (!first || !last) {
+    return coordinates;
+  }
+  if (first[0] === last[0] && first[1] === last[1]) {
+    return coordinates;
+  }
+  return [...coordinates, first];
+}
+
+function readNumber(value: string | number | boolean | undefined, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return fallback;
+}
+
+function geometryAreaHa(geometry: MeasureState['geometry']): number {
+  if (!geometry || geometry.type !== 'Polygon') {
+    return 0;
+  }
+  return geodesicPolygonAreaM2(geometry.coordinates) / 1e4;
+}
+
+function geometryLengthM(geometry: MeasureState['geometry']): number {
+  if (!geometry || geometry.type !== 'LineString') {
+    return 0;
+  }
+  return geodesicLengthM(geometry.coordinates);
+}
+
+function summarizeMeasure(measure: MeasureState): MeasureSummary {
+  const areaHa = geometryAreaHa(measure.geometry);
+  const lengthM = geometryLengthM(measure.geometry);
+  const warnings: string[] = [];
+  let volumeM3 = 0;
+  let excavationM3 = 0;
+
+  try {
+    if (measure.kind === 'storageWithPipe') {
+      const depthM = readNumber(measure.params.depthM, 1.2);
+      const areaM2 = areaHa * 1e4;
+      const suggestedVolumeM3 = readNumber(measure.params.suggestedVolumeM3, 0);
+      volumeM3 = suggestedVolumeM3 > 0 ? suggestedVolumeM3 : areaM2 * depthM;
+      excavationM3 = volumeM3;
+    } else if (measure.kind === 'forestMulches') {
+      const count = readNumber(measure.params.count, 3);
+      const volumeEachM3 = readNumber(measure.params.volumeEachM3, 8);
+      volumeM3 = count * volumeEachM3;
+      excavationM3 = volumeM3;
+    } else if (measure.kind === 'swale') {
+      const geometry = swaleGeometry({
+        lengthM: Math.max(1, lengthM),
+        bottomWidthM: readNumber(measure.params.bottomWidthM, 0.5),
+        depthM: readNumber(measure.params.depthM, 0.5),
+        sideSlopeM: readNumber(measure.params.sideSlopeM, 2),
+      });
+      const elevationProfile = parseElevationProfile(measure.params.elevationProfile);
+      const contourWarnings = validateSwaleContourAlignment(elevationProfile).map((warning) => warning.code);
+      warnings.push(...contourWarnings);
+      volumeM3 = geometry.vMaxM3;
+      excavationM3 = geometry.excavationM3;
+    } else if (measure.kind === 'stonefield') {
+      const areaM2 = Math.max(1, areaHa * 1e4);
+      const widthM = Math.max(0.5, readNumber(measure.params.widthM, Math.sqrt(areaM2)));
+      const lengthFlowM = Math.max(0.5, readNumber(measure.params.lengthFlowM, Math.sqrt(areaM2)));
+      const geometry = stonefieldGeometry({
+        widthM,
+        lengthFlowM,
+        spacingM: readNumber(measure.params.spacingM, 2),
+        holeDiameterM: readNumber(measure.params.holeDiameterM, 0.8),
+        holeDepthM: readNumber(measure.params.holeDepthM, 1),
+        porosity: readNumber(measure.params.porosity, 0.35),
+      });
+      const hydraulics = analyzeStonefieldHydraulics({
+        qInMaxM3s: readNumber(measure.params.qInMaxM3s, 0.3),
+        widthM,
+        slope: readNumber(measure.params.slope, 0.03),
+        kStone: readNumber(measure.params.kStone, 35),
+        d50M: readNumber(measure.params.d50M, 0.08),
+      });
+      warnings.push(...geometry.warnings.map((warning) => warning.code));
+      warnings.push(...hydraulics.warnings.map((warning) => warning.code));
+      volumeM3 = geometry.porosityStorageM3;
+      excavationM3 = volumeM3 / Math.max(0.01, readNumber(measure.params.porosity, 0.35));
+    }
+  } catch {
+    warnings.push('invalid-parameters');
+  }
+
+  return {
+    areaHa,
+    lengthM,
+    volumeM3,
+    excavationM3,
+    warnings,
+  };
+}
+
+function parseElevationProfile(value: string | number | boolean | undefined): number[] {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((entry) => Number(entry.trim()))
+    .filter((entry) => Number.isFinite(entry));
+}
+
+function defaultParams(kind: MeasureKind): Record<string, number | string> {
+  switch (kind) {
+    case 'landUseChange':
+      return {
+        landUse: 'Acker',
+        month: '4',
+        mulchDirectSeed: 'no',
+        tillageDirection: 'contour_parallel',
+      };
+    case 'storageWithPipe':
+      return {
+        form: 'prism',
+        depthM: 1.2,
+        pipeDnMm: 300,
+        pipeLengthM: 12,
+        targetQOutM3s: 0.18,
+      };
+    case 'forestMulches':
+      return {
+        count: 3,
+        volumeEachM3: 8,
+        location: 'mid',
+      };
+    case 'swale':
+      return {
+        bottomWidthM: 0.5,
+        depthM: 0.5,
+        sideSlopeM: 2,
+        landCoverK: 12,
+        elevationProfile: '',
+      };
+    case 'stonefield':
+      return {
+        spacingM: 2,
+        holeDiameterM: 0.8,
+        holeDepthM: 1,
+        porosity: 0.35,
+        qInMaxM3s: 0.3,
+        slope: 0.03,
+        kStone: 35,
+        d50M: 0.08,
+      };
+    case 'flowPathChange':
+      return {
+        segmentType: 'hollow',
+        roughnessK: 25,
+      };
+  }
+}
+
+function renderMeasureEditor(
+  locale: Locale,
+  measure: MeasureState,
+  updateMeasure: (id: string, updater: (measure: MeasureState) => MeasureState) => void,
+  applyStorageSuggestion: () => void,
+): JSX.Element {
+  const setParam = (key: string, value: string | number) => {
+    updateMeasure(measure.id, (current) => ({
+      ...current,
+      params: {
+        ...current.params,
+        [key]: value,
+      },
+    }));
+  };
+
+  switch (measure.kind) {
+    case 'landUseChange':
+      return (
+        <div className="editor-grid">
+          <label>
+            {t(locale, 'measure.param.landUse')}
+            <input
+              value={String(measure.params.landUse ?? '')}
+              onInput={(event) => setParam('landUse', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.month')}
+            <input
+              type="number"
+              min={1}
+              max={12}
+              value={String(measure.params.month ?? '')}
+              onInput={(event) => setParam('month', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.mulchDirectSeed')}
+            <select
+              value={String(measure.params.mulchDirectSeed ?? 'no')}
+              onChange={(event) => setParam('mulchDirectSeed', (event.target as HTMLSelectElement).value)}
+            >
+              <option value="yes">{t(locale, 'common.yes')}</option>
+              <option value="no">{t(locale, 'common.no')}</option>
+            </select>
+          </label>
+          <label>
+            {t(locale, 'measure.param.tillageDirection')}
+            <select
+              value={String(measure.params.tillageDirection ?? 'contour_parallel')}
+              onChange={(event) => setParam('tillageDirection', (event.target as HTMLSelectElement).value)}
+            >
+              <option value="contour_parallel">{t(locale, 'measure.param.tillageDirection.contour')}</option>
+              <option value="downslope">{t(locale, 'measure.param.tillageDirection.downslope')}</option>
+              <option value="terraced">{t(locale, 'measure.param.tillageDirection.terraced')}</option>
+            </select>
+          </label>
+        </div>
+      );
+    case 'storageWithPipe':
+      return (
+        <div className="editor-grid">
+          <label>
+            {t(locale, 'measure.param.form')}
+            <select
+              value={String(measure.params.form ?? 'prism')}
+              onChange={(event) => setParam('form', (event.target as HTMLSelectElement).value)}
+            >
+              <option value="prism">{t(locale, 'measure.param.form.prism')}</option>
+              <option value="hollow">{t(locale, 'measure.param.form.hollow')}</option>
+            </select>
+          </label>
+          <label>
+            {t(locale, 'measure.param.depthM')}
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={String(measure.params.depthM ?? 1.2)}
+              onInput={(event) => setParam('depthM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.pipeDnMm')}
+            <input
+              type="number"
+              min={50}
+              step={10}
+              value={String(measure.params.pipeDnMm ?? 300)}
+              onInput={(event) => setParam('pipeDnMm', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.pipeLengthM')}
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={String(measure.params.pipeLengthM ?? 12)}
+              onInput={(event) => setParam('pipeLengthM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.targetQOutM3s')}
+            <input
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={String(measure.params.targetQOutM3s ?? 0.18)}
+              onInput={(event) => setParam('targetQOutM3s', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <button type="button" onClick={applyStorageSuggestion}>
+            {t(locale, 'measure.param.suggestSize')}
+          </button>
+        </div>
+      );
+    case 'forestMulches':
+      return (
+        <div className="editor-grid">
+          <label>
+            {t(locale, 'measure.param.count')}
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={String(measure.params.count ?? 3)}
+              onInput={(event) => setParam('count', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.volumeEachM3')}
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={String(measure.params.volumeEachM3 ?? 8)}
+              onInput={(event) => setParam('volumeEachM3', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.location')}
+            <select
+              value={String(measure.params.location ?? 'mid')}
+              onChange={(event) => setParam('location', (event.target as HTMLSelectElement).value)}
+            >
+              <option value="top">{t(locale, 'measure.param.location.top')}</option>
+              <option value="mid">{t(locale, 'measure.param.location.mid')}</option>
+              <option value="low">{t(locale, 'measure.param.location.low')}</option>
+            </select>
+          </label>
+        </div>
+      );
+    case 'swale':
+      return (
+        <div className="editor-grid">
+          <label>
+            {t(locale, 'measure.param.bottomWidthM')}
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={String(measure.params.bottomWidthM ?? 0.5)}
+              onInput={(event) => setParam('bottomWidthM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.depthM')}
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={String(measure.params.depthM ?? 0.5)}
+              onInput={(event) => setParam('depthM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.sideSlopeM')}
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={String(measure.params.sideSlopeM ?? 2)}
+              onInput={(event) => setParam('sideSlopeM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.elevationProfile')}
+            <input
+              value={String(measure.params.elevationProfile ?? '')}
+              onInput={(event) => setParam('elevationProfile', (event.target as HTMLInputElement).value)}
+              placeholder="430, 430.1, 430"
+            />
+          </label>
+        </div>
+      );
+    case 'stonefield':
+      return (
+        <div className="editor-grid">
+          <label>
+            {t(locale, 'measure.param.spacingM')}
+            <input
+              type="number"
+              min={0.2}
+              step={0.1}
+              value={String(measure.params.spacingM ?? 2)}
+              onInput={(event) => setParam('spacingM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.holeDiameterM')}
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={String(measure.params.holeDiameterM ?? 0.8)}
+              onInput={(event) => setParam('holeDiameterM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.holeDepthM')}
+            <input
+              type="number"
+              min={0.1}
+              step={0.1}
+              value={String(measure.params.holeDepthM ?? 1)}
+              onInput={(event) => setParam('holeDepthM', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.porosity')}
+            <input
+              type="number"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={String(measure.params.porosity ?? 0.35)}
+              onInput={(event) => setParam('porosity', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+        </div>
+      );
+    case 'flowPathChange':
+      return (
+        <div className="editor-grid">
+          <label>
+            {t(locale, 'measure.param.segmentType')}
+            <input
+              value={String(measure.params.segmentType ?? 'hollow')}
+              onInput={(event) => setParam('segmentType', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.roughnessK')}
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={String(measure.params.roughnessK ?? 25)}
+              onInput={(event) => setParam('roughnessK', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+        </div>
+      );
   }
 }

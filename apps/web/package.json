@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@schwammspiel/engine": "workspace:*",
     "maplibre-gl": "^6.4.1",
     "preact": "^10.29.8",
     "uplot": "^1.6.32"

@@ -38,6 +38,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@schwammspiel/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       maplibre-gl:
         specifier: ^6.4.1
         version: 6.10.0
