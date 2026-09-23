@@ -57,8 +57,8 @@ const result: ScenarioEvaluationResult = {
 };
 
 describe('scenario result helpers', () => {
-  test('builds mittenbetont rain bars that preserve the event depth', () => {
-    const series = buildRainChartSeries(
+  test('builds mittenbetont rain bars that preserve the event depth across timesteps', () => {
+    const hourlySeries = buildRainChartSeries(
       {
         id: 'hq20-4h',
         name: '20-jährlich, 4 h',
@@ -68,10 +68,22 @@ describe('scenario result helpers', () => {
       },
       1,
     );
+    const halfHourlySeries = buildRainChartSeries(
+      {
+        id: 'hq20-4h',
+        name: '20-jährlich, 4 h',
+        pMm: 40,
+        durationH: 4,
+        rainShape: 'mittenbetont',
+      },
+      0.5,
+    );
 
-    const totalMm = series.intensityMmH.reduce((sum, value) => sum + value, 0);
-    expect(totalMm).toBeCloseTo(40, 8);
-    expect(Math.max(...series.intensityMmH)).toBeGreaterThan(series.intensityMmH[0] ?? 0);
+    const hourlyDepthMm = hourlySeries.intensityMmH.reduce((sum, value) => sum + value * 1, 0);
+    const halfHourlyDepthMm = halfHourlySeries.intensityMmH.reduce((sum, value) => sum + value * 0.5, 0);
+    expect(hourlyDepthMm).toBeCloseTo(40, 8);
+    expect(halfHourlyDepthMm).toBeCloseTo(40, 8);
+    expect(Math.max(...hourlySeries.intensityMmH)).toBeGreaterThan(hourlySeries.intensityMmH[0] ?? 0);
   });
 
   test('computes peak reduction and delay for outlet and subcatchments', () => {

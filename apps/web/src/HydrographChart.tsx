@@ -20,8 +20,25 @@ type Props = {
   after: ScenarioHydrograph;
 };
 
-function buildTimeAxis(hydrograph: ScenarioHydrograph): number[] {
-  return Array.from({ length: hydrograph.qM3s.length }, (_, index) => index * hydrograph.dtH);
+function interpolateSeries(hydrograph: ScenarioHydrograph, timeH: number): number {
+  if (timeH < 0) {
+    return 0;
+  }
+  const rawIndex = timeH / hydrograph.dtH;
+  const lo = Math.floor(rawIndex);
+  const hi = lo + 1;
+  const loValue = hydrograph.qM3s[lo] ?? 0;
+  const hiValue = hydrograph.qM3s[hi] ?? loValue;
+  return loValue + (hiValue - loValue) * (rawIndex - lo);
+}
+
+function buildCommonTimeAxis(before: ScenarioHydrograph, after: ScenarioHydrograph): number[] {
+  const dtH = Math.min(before.dtH, after.dtH);
+  const maxTimeH = Math.max(
+    Math.max(0, before.qM3s.length - 1) * before.dtH,
+    Math.max(0, after.qM3s.length - 1) * after.dtH,
+  );
+  return Array.from({ length: Math.ceil(maxTimeH / dtH) + 1 }, (_, index) => index * dtH);
 }
 
 function alignRainfallToTimes(timesH: number[], rainfall: Props['rainfall']): number[] {
@@ -45,7 +62,9 @@ export function HydrographChart({ locale, labels, rainfall, before, after }: Pro
       return;
     }
 
-    const timeH = buildTimeAxis(before);
+    const timeH = buildCommonTimeAxis(before, after);
+    const beforeSeries = timeH.map((timeValue) => interpolateSeries(before, timeValue));
+    const afterSeries = timeH.map((timeValue) => interpolateSeries(after, timeValue));
     const rainfallSeries = alignRainfallToTimes(timeH, rainfall);
     const formatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
     const width = Math.max(280, rainHost.clientWidth || hydrographHost.clientWidth || 280);
@@ -112,7 +131,7 @@ export function HydrographChart({ locale, labels, rainfall, before, after }: Pro
           },
         ],
       },
-      [timeH, before.qM3s, after.qM3s],
+      [timeH, beforeSeries, afterSeries],
       hydrographHost,
     );
 

@@ -718,6 +718,25 @@ export function App() {
     };
   }, [evaluationResult, selectedProtectionPointId]);
 
+  const selectedProtectionPointSummary = useMemo(() => {
+    if (!evaluationResult) {
+      return null;
+    }
+    if (selectedProtectionPointId === OUTLET_PROTECTION_POINT_ID) {
+      return {
+        retainedVolumeM3: evaluationResult.retainedVolumeM3,
+        areaUsedHa: evaluationResult.areaUsedHa,
+        excavationM3: evaluationResult.excavationM3,
+      };
+    }
+    const subcatchment = evaluationResult.subcatchments.find((entry) => entry.id === selectedProtectionPointId);
+    return {
+      retainedVolumeM3: subcatchment?.retainedVolumeM3 ?? 0,
+      areaUsedHa: subcatchment?.areaUsedHa ?? 0,
+      excavationM3: subcatchment?.excavationM3 ?? 0,
+    };
+  }, [evaluationResult, selectedProtectionPointId]);
+
   const visibleWarnings = useMemo(() => {
     if (!evaluationResult) {
       return [];
@@ -1486,7 +1505,7 @@ export function App() {
                       </div>
                       <div>
                         <dt>{t(locale, 'result.metric.retainedVolume')}</dt>
-                        <dd>{formatValue(numberFormatter, evaluationResult.retainedVolumeM3, 'm³')}</dd>
+                        <dd>{formatValue(numberFormatter, selectedProtectionPointSummary?.retainedVolumeM3 ?? null, 'm³')}</dd>
                       </div>
                       <div>
                         <dt>{t(locale, 'result.metric.fillAndPeak')}</dt>
@@ -1505,11 +1524,11 @@ export function App() {
                       </div>
                       <div>
                         <dt>{t(locale, 'result.metric.areaUse')}</dt>
-                        <dd>{formatValue(numberFormatter, evaluationResult.areaUsedHa, 'ha')}</dd>
+                        <dd>{formatValue(numberFormatter, selectedProtectionPointSummary?.areaUsedHa ?? null, 'ha')}</dd>
                       </div>
                       <div>
                         <dt>{t(locale, 'result.metric.excavation')}</dt>
-                        <dd>{formatValue(numberFormatter, evaluationResult.excavationM3, 'm³')}</dd>
+                        <dd>{formatValue(numberFormatter, selectedProtectionPointSummary?.excavationM3 ?? null, 'm³')}</dd>
                       </div>
                       <div>
                         <dt>{t(locale, 'result.metric.cost')}</dt>
@@ -2431,10 +2450,11 @@ function evaluateMeasureVisualState(
   for (let index = 0; index <= animationIndex; index += 1) {
     storedM3 += Math.max(0, subcatchment.after.qM3s[index] ?? 0) * dtS * areaShare;
   }
+  const overflowing = storedM3 > storageVolumeM3;
   const fillRatio = Math.max(0, Math.min(1, storedM3 / storageVolumeM3));
   return {
     fillRatio,
-    overflowing: fillRatio >= 1 && animationIndex * subcatchment.after.dtH <= subcatchment.after.tPeakH,
+    overflowing,
   };
 }
 
