@@ -694,7 +694,7 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                             'rHydM': r_hollow,
                         },
                     ]
-                    flow_path = [split for section in sections for split in _split_sheet_max_50m(section) if section['lengthM'] > 0]
+                    flow_path = [split for section in sections for split in _split_sheet_max_50m(section) if split['lengthM'] > 0]
 
                 sid = str(sc['id'])
                 subcatchment_record = _build_subcatchment_record(

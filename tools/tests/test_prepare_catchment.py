@@ -27,6 +27,12 @@ class PrepareCatchmentExportTests(unittest.TestCase):
         self.assertEqual(reference['cn_status'], 'fallback-default')
         self.assertIn('cn_warning', reference)
 
+    def test_reference_cn_falls_back_for_nan(self) -> None:
+        reference = module._build_reference_cn(float('nan'), 75.0)
+        self.assertEqual(reference['cn'], 75.0)
+        self.assertEqual(reference['cn_status'], 'fallback-default')
+        self.assertIn('cn_warning', reference)
+
     def test_build_catchment_payload_contains_default_events(self) -> None:
         payload = module._build_catchment_payload(
             catchment_id='goldbach',
