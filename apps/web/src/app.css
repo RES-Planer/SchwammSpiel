@@ -384,6 +384,34 @@ label,
   border: 0;
 }
 
+.steckbrief-shell {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.steckbrief-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.steckbrief-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.steckbrief-page {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
 @media (min-width: 768px) {
   .toolbar {
     grid-template-columns: 1fr auto;
@@ -397,5 +425,33 @@ label,
 
   #map {
     height: 72vh;
+  }
+}
+
+@media print {
+  @page {
+    size: a4;
+    margin: 14mm;
+  }
+
+  .steckbrief-shell {
+    padding: 0;
+    gap: 0.5rem;
+  }
+
+  .steckbrief-header {
+    font-size: 0.85rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  .steckbrief-actions,
+  .steckbrief-actions a {
+    display: none;
+  }
+
+  .steckbrief-page {
+    border: 0;
+    padding: 0;
   }
 }

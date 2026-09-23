@@ -1052,6 +1052,22 @@ export function App() {
     }
   };
 
+  const openSteckbrief = async () => {
+    try {
+      const fragment = await toShareFragment(scenario);
+      const url = new URL(window.location.href);
+      const params = new URLSearchParams(fragment);
+      if (selectedRainEventId) {
+        params.set('rainEventId', selectedRainEventId);
+      }
+      url.hash = `/steckbrief/?${params.toString()}`;
+      url.searchParams.set('lang', locale);
+      window.location.assign(url.toString());
+    } catch {
+      setShareMessageKey('scenario.share.invalid');
+    }
+  };
+
   const triggerRainScenario = () => {
     const worker = workerRef.current;
     if (!worker || !catchmentData || !selectedRainEventId) {
@@ -1185,6 +1201,9 @@ export function App() {
             </button>
             <button type="button" onClick={() => void shareScenario()}>
               {t(locale, 'scenario.share')}
+            </button>
+            <button type="button" onClick={() => void openSteckbrief()}>
+              {t(locale, 'scenario.steckbrief')}
             </button>
             <input
               ref={fileInputRef}
