@@ -1,6 +1,6 @@
 import type { ScenarioHydrograph } from '@schwammspiel/engine';
 import uPlot from 'uplot';
-import { useEffect, useRef } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 
 import 'uplot/dist/uPlot.min.css';
 
@@ -52,8 +52,28 @@ function alignRainfallToTimes(timesH: number[], rainfall: Props['rainfall']): nu
 }
 
 export function HydrographChart({ locale, labels, rainfall, before, after }: Props) {
+  const stackRef = useRef<HTMLDivElement | null>(null);
   const rainHostRef = useRef<HTMLDivElement | null>(null);
   const hydrographHostRef = useRef<HTMLDivElement | null>(null);
+  const [width, setWidth] = useState(280);
+
+  useEffect(() => {
+    const host = stackRef.current;
+    if (!host) {
+      return undefined;
+    }
+    const updateWidth = () => {
+      setWidth(Math.max(280, host.clientWidth || 280));
+    };
+    updateWidth();
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(host);
+    window.addEventListener('resize', updateWidth);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateWidth);
+    };
+  }, []);
 
   useEffect(() => {
     const rainHost = rainHostRef.current;
@@ -67,7 +87,6 @@ export function HydrographChart({ locale, labels, rainfall, before, after }: Pro
     const afterSeries = timeH.map((timeValue) => interpolateSeries(after, timeValue));
     const rainfallSeries = alignRainfallToTimes(timeH, rainfall);
     const formatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
-    const width = Math.max(280, rainHost.clientWidth || hydrographHost.clientWidth || 280);
     const rainPaths = uPlot.paths.bars ? uPlot.paths.bars({ size: [0.8, 80] }) : undefined;
 
     const rainPlot = new uPlot(
@@ -139,10 +158,10 @@ export function HydrographChart({ locale, labels, rainfall, before, after }: Pro
       rainPlot.destroy();
       hydrographPlot.destroy();
     };
-  }, [after, before, locale, rainfall]);
+  }, [after, before, labels, locale, rainfall, width]);
 
   return (
-    <div className="hydrograph-chart-stack">
+    <div ref={stackRef} className="hydrograph-chart-stack">
       <div ref={rainHostRef} className="chart-host" role="img" aria-label={labels.rainfallAria} />
       <div
         ref={hydrographHostRef}

@@ -12,6 +12,7 @@ type Props = {
 
 export function AssumptionsModal({ locale, open, onClose }: Props) {
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const dialogRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -21,6 +22,28 @@ export function AssumptionsModal({ locale, open, onClose }: Props) {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
+        return;
+      }
+      if (event.key !== 'Tab') {
+        return;
+      }
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      );
+      if (!focusable || focusable.length === 0) {
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) {
+        return;
+      }
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -36,6 +59,7 @@ export function AssumptionsModal({ locale, open, onClose }: Props) {
   return (
     <div className="modal-backdrop" role="presentation" onClick={onClose}>
       <section
+        ref={dialogRef}
         className="modal-card"
         role="dialog"
         aria-modal="true"

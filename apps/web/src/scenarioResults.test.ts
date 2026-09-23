@@ -164,4 +164,21 @@ describe('scenario result helpers', () => {
     expect(estimateFillTimeH(result.after, 7200, 0.5)).toBe(3);
     expect(estimateFillTimeH(result.after, 100000, 0.5)).toBeNull();
   });
+
+  test('handles first-step and fractional timestep fill boundaries', () => {
+    expect(
+      estimateFillTimeH(
+        { dtH: 0.25, qM3s: [1, 0], qMaxM3s: 1, tPeakH: 0, volumeM3: 900 },
+        900,
+        1,
+      ),
+    ).toBeCloseTo(0.25, 8);
+    expect(
+      estimateFillTimeH(
+        { dtH: 0.5, qM3s: [0.5, 0.5], qMaxM3s: 0.5, tPeakH: 0, volumeM3: 1800 },
+        1350,
+        1,
+      ),
+    ).toBeCloseTo(1, 8);
+  });
 });
