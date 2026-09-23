@@ -70,7 +70,7 @@ Hilfsparameter (Auszug):
 
 ## Abhängigkeiten
 
-Python 3.11 sowie:
+Python 3.11+ (wird im Skript geprüft) sowie:
 
 - `geopandas`
 - `rasterio`

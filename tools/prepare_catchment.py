@@ -22,6 +22,7 @@ import json
 import math
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -218,6 +219,15 @@ def _flow_type_for_accumulation_ha(area_ha: float) -> str:
     if area_ha < 5:
         return 'rill'
     return 'hollow'
+
+
+def _weighted_mean_ignore_nan(values: Any, weights: Any, np: Any) -> float | None:
+    vals = np.asarray(values, dtype='float64')
+    w = np.asarray(weights, dtype='float64')
+    mask = np.isfinite(vals) & np.isfinite(w) & (w > 0)
+    if not mask.any():
+        return None
+    return float(np.average(vals[mask], weights=w[mask]))
 
 
 def _line_length_m(coords: list[tuple[float, float]]) -> float:
@@ -460,8 +470,8 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                     cn_march_avg = None
                 else:
                     areas = cn_in_sc.geometry.area
-                    cn_low_avg = float(np.average(cn_in_sc['cnLowSeasonality'].fillna(np.nan), weights=areas))
-                    cn_march_avg = float(np.average(cn_in_sc['cnMarchC'].fillna(np.nan), weights=areas))
+                    cn_low_avg = _weighted_mean_ignore_nan(cn_in_sc['cnLowSeasonality'], areas, np)
+                    cn_march_avg = _weighted_mean_ignore_nan(cn_in_sc['cnMarchC'], areas, np)
 
                 flow_in_sc = gpd.clip(streams_native, gpd.GeoDataFrame([{'geometry': geom}], crs=target_crs))
                 if flow_in_sc.empty:
@@ -801,6 +811,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    if sys.version_info < (3, 11):
+        raise RuntimeError('tools/prepare_catchment.py requires Python 3.11+')
     parser = build_parser()
     args = parser.parse_args()
     run_pipeline(args)
