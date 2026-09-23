@@ -15,6 +15,12 @@ import type { JSX } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
 import { AssumptionsModal } from './AssumptionsModal';
+import {
+  applyBaseStyle,
+  defaultMapStyle,
+  findVisibleVectorStyleLayer,
+  isSourceLayer,
+} from './basemapStyle';
 import { geodesicLengthM, geodesicPolygonAreaM2, type LngLat } from './geodesy';
 import { HydrographChart } from './HydrographChart';
 import { locales, type Locale, t } from './i18n';
@@ -62,20 +68,6 @@ import {
   type ScenarioState,
 } from './scenarioState';
 import './app.css';
-
-const mapStyle: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {},
-  layers: [
-    {
-      id: 'background',
-      type: 'background',
-      paint: {
-        'background-color': '#f8fafc',
-      },
-    },
-  ],
-};
 
 type DrawMode = {
   kind: MeasureKind;
@@ -178,6 +170,7 @@ export function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const addedLayerIdsRef = useRef<string[]>([]);
   const addedSourceIdsRef = useRef<string[]>([]);
+  const activeBaseStyleRef = useRef<string | null>(null);
   const catchmentId = useMemo(() => resolveCatchmentId(window.location.search), []);
   const [scenarioHistory, setScenarioHistory] = useState<HistoryState<ScenarioState>>(() =>
     createHistoryState(createInitialScenarioState(catchmentId)),
@@ -187,6 +180,10 @@ export function App() {
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(localeTag, { maximumFractionDigits: 1 }),
     [localeTag],
+  );
+  const activeBaseStyleUrl = useMemo(
+    () => findVisibleVectorStyleLayer(manifest?.layers ?? [], layerVisibility)?.url ?? null,
+    [layerVisibility, manifest],
   );
 
   useEffect(() => {
@@ -224,7 +221,7 @@ export function App() {
 
     const map = new maplibregl.Map({
       container: mapElement,
-      style: mapStyle,
+      style: defaultMapStyle,
       center: [11.93, 49.945],
       zoom: 13,
       attributionControl: false,
@@ -444,30 +441,50 @@ export function App() {
       return undefined;
     }
 
-    removeManifestLayers(map, addedLayerIdsRef.current, addedSourceIdsRef.current);
-    const addedLayerIds: string[] = [];
-    const addedSourceIds: string[] = [];
+    const nextBaseStyleKey = activeBaseStyleUrl ?? '__default__';
 
-    for (const layer of manifest.layers) {
-      const sourceId = sourceIdFor(layer.id);
-      const layerId = layerIdFor(layer.id);
-      map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId, locale));
-      map.addLayer(buildManifestLayer(layer, layerId, sourceId));
+    const applyManifestLayers = () => {
+      removeManifestLayers(map, addedLayerIdsRef.current, addedSourceIdsRef.current);
+      const addedLayerIds: string[] = [];
+      const addedSourceIds: string[] = [];
 
-      addedLayerIds.push(layerId);
-      addedSourceIds.push(sourceId);
+      for (const layer of manifest.layers) {
+        if (!isSourceLayer(layer)) {
+          continue;
+        }
+
+        const sourceId = sourceIdFor(layer.id);
+        const layerId = layerIdFor(layer.id);
+        map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId, locale));
+        map.addLayer(buildManifestLayer(layer, layerId, sourceId));
+
+        const isVisible = layerVisibility[layer.id] ?? layer.visibleByDefault ?? true;
+        map.setLayoutProperty(layerId, 'visibility', isVisible ? 'visible' : 'none');
+
+        addedLayerIds.push(layerId);
+        addedSourceIds.push(sourceId);
+      }
+
+      addedLayerIdsRef.current = addedLayerIds;
+      addedSourceIdsRef.current = addedSourceIds;
+      map.fitBounds(manifest.bounds, { padding: { top: 72, right: 24, bottom: 72, left: 24 }, duration: 0 });
+    };
+
+    if (activeBaseStyleRef.current !== nextBaseStyleKey) {
+      return applyBaseStyle(map, activeBaseStyleUrl, (activeStyleKey) => {
+        activeBaseStyleRef.current = activeStyleKey;
+        applyManifestLayers();
+      });
     }
 
-    addedLayerIdsRef.current = addedLayerIds;
-    addedSourceIdsRef.current = addedSourceIds;
-    map.fitBounds(manifest.bounds, { padding: { top: 72, right: 24, bottom: 72, left: 24 }, duration: 0 });
+    applyManifestLayers();
 
     return () => {
-      removeManifestLayers(map, addedLayerIds, addedSourceIds);
+      removeManifestLayers(map, addedLayerIdsRef.current, addedSourceIdsRef.current);
       addedLayerIdsRef.current = [];
       addedSourceIdsRef.current = [];
     };
-  }, [catchmentId, locale, manifest, mapReady]);
+  }, [activeBaseStyleUrl, catchmentId, locale, manifest, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -476,6 +493,9 @@ export function App() {
     }
 
     for (const layer of manifest.layers) {
+      if (!isSourceLayer(layer)) {
+        continue;
+      }
       const layerId = layerIdFor(layer.id);
       if (!map.getLayer(layerId)) {
         continue;

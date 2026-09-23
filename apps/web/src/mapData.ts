@@ -48,7 +48,14 @@ export type RasterTileLayerManifest = BaseLayerManifest & {
   tileSize?: number;
 };
 
-export type LayerManifest = GeoJsonLayerManifest | ImageLayerManifest | RasterTileLayerManifest;
+export type VectorStyleLayerManifest = BaseLayerManifest & {
+  type: 'vector-style';
+  url: string;
+};
+
+export type SourceLayerManifest = GeoJsonLayerManifest | ImageLayerManifest | RasterTileLayerManifest;
+
+export type LayerManifest = SourceLayerManifest | VectorStyleLayerManifest;
 
 export type CatchmentManifest = {
   id: string;

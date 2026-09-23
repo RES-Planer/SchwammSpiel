@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
 import { buildManifestLayer, buildManifestSource } from './manifestLayers';
-import type { LayerManifest } from './mapData';
+import type { SourceLayerManifest } from './mapData';
 
 describe('manifest layer builders', () => {
   test('builds a raster tile source from manifest layer definitions', () => {
-    const layer: LayerManifest = {
+    const layer: SourceLayerManifest = {
       id: 'basemap',
       name: { de: 'Basiskarte' },
       type: 'raster',
@@ -22,14 +22,14 @@ describe('manifest layer builders', () => {
   });
 
   test('builds geojson and image sources using catchment-relative asset URLs', () => {
-    const geojsonLayer: LayerManifest = {
+    const geojsonLayer: SourceLayerManifest = {
       id: 'subcatchments',
       name: { de: 'Teilgebiete' },
       type: 'geojson',
       layerType: 'fill',
       path: 'subcatchments.geojson',
     };
-    const imageLayer: LayerManifest = {
+    const imageLayer: SourceLayerManifest = {
       id: 'hillshade',
       name: { de: 'Schummerung' },
       type: 'image',
@@ -55,7 +55,7 @@ describe('manifest layer builders', () => {
   });
 
   test('builds map layer definitions with default visibility and custom style', () => {
-    const layer: LayerManifest = {
+    const layer: SourceLayerManifest = {
       id: 'flow-paths',
       name: { de: 'Fließwege' },
       type: 'geojson',
@@ -80,7 +80,7 @@ describe('manifest layer builders', () => {
   });
 
   test('keeps localized raster attributions in generated map sources', () => {
-    const layer: LayerManifest = {
+    const layer: SourceLayerManifest = {
       id: 'basemap-openfreemap',
       name: { de: 'Basiskarte OpenFreeMap' },
       type: 'raster',

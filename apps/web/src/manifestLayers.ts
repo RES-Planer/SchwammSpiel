@@ -1,10 +1,10 @@
 import type * as maplibregl from 'maplibre-gl';
 
 import type { Locale } from './i18n';
-import { buildDataUrl, getLocalizedText, type LayerManifest } from './mapData';
+import { buildDataUrl, getLocalizedText, type SourceLayerManifest } from './mapData';
 
 export function buildManifestSource(
-  layer: LayerManifest,
+  layer: SourceLayerManifest,
   baseUrl: string,
   catchmentId: string,
   locale: Locale,
@@ -37,7 +37,7 @@ export function buildManifestSource(
 }
 
 export function buildManifestLayer(
-  layer: LayerManifest,
+  layer: SourceLayerManifest,
   layerId: string,
   sourceId: string,
 ): maplibregl.AddLayerObject {
