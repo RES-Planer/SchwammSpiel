@@ -3,6 +3,20 @@ import { describe, expect, test } from 'vitest';
 import { buildManifestLayer, buildManifestSource } from './manifestLayers';
 import type { SourceLayerManifest } from './mapData';
 
+function expectNoUndefinedValues(value: unknown): void {
+  if (Array.isArray(value)) {
+    value.forEach(expectNoUndefinedValues);
+    return;
+  }
+
+  if (value && typeof value === 'object') {
+    for (const [key, nestedValue] of Object.entries(value)) {
+      expect(nestedValue, `expected ${key} not to be undefined`).not.toBeUndefined();
+      expectNoUndefinedValues(nestedValue);
+    }
+  }
+}
+
 describe('manifest layer builders', () => {
   test('builds a raster tile source from manifest layer definitions', () => {
     const layer: SourceLayerManifest = {
@@ -28,6 +42,7 @@ describe('manifest layer builders', () => {
       type: 'geojson',
       layerType: 'fill',
       path: 'subcatchments.geojson',
+      attribution: { de: 'GeoJSON Quelle', en: 'GeoJSON source' },
     };
     const imageLayer: SourceLayerManifest = {
       id: 'hillshade',
@@ -35,6 +50,7 @@ describe('manifest layer builders', () => {
       type: 'image',
       layerType: 'raster',
       path: 'hillshade.png',
+      attribution: { de: 'Schummerung Quelle', en: 'Hillshade source' },
       coordinates: [
         [11.9, 50.0],
         [12.0, 50.0],
@@ -46,6 +62,7 @@ describe('manifest layer builders', () => {
     expect(buildManifestSource(geojsonLayer, '/SchwammSpiel/', 'demo', 'de')).toEqual({
       type: 'geojson',
       data: '/SchwammSpiel/data/demo/subcatchments.geojson',
+      attribution: 'GeoJSON Quelle',
     });
     expect(buildManifestSource(imageLayer, '/SchwammSpiel/', 'demo', 'de')).toEqual({
       type: 'image',
@@ -74,8 +91,6 @@ describe('manifest layer builders', () => {
       source: 'catchment-source-flow-paths',
       paint: { 'line-color': '#0f766e' },
       layout: { visibility: 'none', 'line-cap': 'round' },
-      minzoom: undefined,
-      maxzoom: undefined,
     });
   });
 
@@ -98,5 +113,33 @@ describe('manifest layer builders', () => {
       tileSize: 256,
       attribution: 'OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL)',
     });
+  });
+
+  test('omits invalid undefined layer properties and image attributions', () => {
+    const layer: SourceLayerManifest = {
+      id: 'hillshade',
+      name: { de: 'Schummerung' },
+      type: 'image',
+      layerType: 'raster',
+      path: 'hillshade.png',
+      attribution: { de: 'Schummerung Quelle' },
+      coordinates: [
+        [11.9, 50.0],
+        [12.0, 50.0],
+        [12.0, 49.9],
+        [11.9, 49.9],
+      ],
+    };
+
+    const source = buildManifestSource(layer, '/SchwammSpiel/', 'demo', 'de');
+    const mapLayer = buildManifestLayer(layer, 'catchment-layer-hillshade', 'catchment-source-hillshade');
+
+    expectNoUndefinedValues(source);
+    expectNoUndefinedValues(mapLayer);
+    expect(source).not.toHaveProperty('attribution');
+    expect(mapLayer).not.toHaveProperty('paint');
+    expect(mapLayer).not.toHaveProperty('layout');
+    expect(mapLayer).not.toHaveProperty('minzoom');
+    expect(mapLayer).not.toHaveProperty('maxzoom');
   });
 });

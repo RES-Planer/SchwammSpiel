@@ -10,12 +10,11 @@ export function buildManifestSource(
   locale: Locale,
 ): maplibregl.SourceSpecification {
   const attribution = getLocalizedText(layer.attribution, locale, '').trim() || undefined;
-  const attributionSpec = attribution ? { attribution } : {};
   if (layer.type === 'geojson') {
     return {
       type: 'geojson',
       data: buildDataUrl(baseUrl, catchmentId, layer.path),
-      ...attributionSpec,
+      ...(attribution ? { attribution } : {}),
     };
   }
 
@@ -24,7 +23,6 @@ export function buildManifestSource(
       type: 'image',
       url: buildDataUrl(baseUrl, catchmentId, layer.path),
       coordinates: layer.coordinates,
-      ...attributionSpec,
     };
   }
 
@@ -32,7 +30,7 @@ export function buildManifestSource(
     type: 'raster',
     tiles: layer.tiles,
     tileSize: layer.tileSize ?? 256,
-    ...attributionSpec,
+    ...(attribution ? { attribution } : {}),
   };
 }
 
@@ -41,16 +39,21 @@ export function buildManifestLayer(
   layerId: string,
   sourceId: string,
 ): maplibregl.AddLayerObject {
+  const layout =
+    layer.visibleByDefault === false || layer.style?.layout
+      ? ({
+          visibility: layer.visibleByDefault === false ? 'none' : 'visible',
+          ...(layer.style?.layout ?? {}),
+        } as Record<string, unknown>)
+      : undefined;
+
   return {
     id: layerId,
     type: layer.layerType,
     source: sourceId,
-    paint: layer.style?.paint as Record<string, unknown> | undefined,
-    layout: {
-      visibility: layer.visibleByDefault === false ? 'none' : 'visible',
-      ...(layer.style?.layout ?? {}),
-    } as Record<string, unknown>,
-    minzoom: layer.minzoom,
-    maxzoom: layer.maxzoom,
+    ...(layer.style?.paint ? { paint: layer.style.paint as Record<string, unknown> } : {}),
+    ...(layout ? { layout } : {}),
+    ...(layer.minzoom !== undefined ? { minzoom: layer.minzoom } : {}),
+    ...(layer.maxzoom !== undefined ? { maxzoom: layer.maxzoom } : {}),
   } as maplibregl.AddLayerObject;
 }
