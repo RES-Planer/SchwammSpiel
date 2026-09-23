@@ -89,6 +89,11 @@ class PrepareCatchmentExportTests(unittest.TestCase):
         self.assertEqual(record['measureAreas'][0]['patches'][0]['cn'], 75.0)
         self.assertEqual(record['meta']['cnMarchC'], 81.23)
 
+    def test_resolve_accumulation_column_prefers_known_names(self) -> None:
+        self.assertEqual(module._resolve_accumulation_column(['foo', 'VALUE']), 'VALUE')
+        self.assertEqual(module._resolve_accumulation_column(['strm_val', 'value']), 'strm_val')
+        self.assertIsNone(module._resolve_accumulation_column(['foo', 'bar']))
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -18,6 +18,7 @@ for the planned Goldbach and future Czech DMR 5G inputs.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import shutil
@@ -41,7 +42,7 @@ class InputPaths:
     dem_laz: list[Path]
 
 
-def _require_optional_dependencies() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
+def _require_optional_dependencies() -> tuple[Any, Any, Any, Any, Any, Any, Any, Any]:
     try:
         import geopandas as gpd
         import numpy as np
@@ -269,6 +270,24 @@ def _get_table_roughness_mean(
         )
         return fallback
     return float(value)
+
+
+def _resolve_accumulation_column(columns: Iterable[str]) -> str | None:
+    for preferred in ('strm_val', 'value'):
+        for column in columns:
+            if column.lower() == preferred:
+                return column
+    return None
+
+
+def _stable_feature_id(row: Any, preferred_field: str | None, prefix: str) -> str:
+    if preferred_field and preferred_field in row and row[preferred_field] is not None:
+        value = str(row[preferred_field]).strip()
+        if value:
+            return value
+    geom = row.geometry
+    digest = hashlib.sha1(geom.wkb).hexdigest()[:12]
+    return f'{prefix}-{digest}'
 
 
 def _build_reference_cn(cn_low_avg: float | None, default_cn: float) -> dict[str, Any]:
@@ -780,18 +799,13 @@ def run_pipeline(args: argparse.Namespace) -> Path:
             lambda sid: record_by_id.get(sid, {}).get('reference', {}).get('tcH')
         )
 
-        cn_zones_web = cn_overlay[['landuse', 'soilGroup', 'cnLowSeasonality', 'cnMarchC', 'areaHa', 'geometry']].copy().to_crs(web_crs)
-        cn_zones_web = cn_zones_web.rename(columns={'cnLowSeasonality': 'cn'})
+        cn_zones_web = cn_overlay[
+            ['landuse', 'soilGroup', 'cnLowSeasonality', 'cnMarchC', 'areaHa', 'geometry']
+        ].copy().to_crs(web_crs)
+        cn_zones_web['cn'] = cn_zones_web['cnLowSeasonality']
 
         streams_web = gpd.read_file(streams_vector).to_crs(web_crs)
-        acc_source = None
-        for candidate in ('strm_val', 'value'):
-            for column in streams_web.columns:
-                if column.lower() == candidate:
-                    acc_source = column
-                    break
-            if acc_source is not None:
-                break
+        acc_source = _resolve_accumulation_column(streams_web.columns)
         if acc_source is not None and acc_source != 'accumulation':
             streams_web = streams_web.rename(columns={acc_source: 'accumulation'})
         if 'accumulation' not in streams_web.columns:
@@ -799,7 +813,13 @@ def run_pipeline(args: argparse.Namespace) -> Path:
 
         sinks_web = sinks_native.to_crs(web_crs)
         parcels_web = parcels[['geometry']].copy().to_crs(web_crs)
-        parcels_web['id'] = [f'parcel-{i + 1}' for i in range(len(parcels_web))]
+        parcel_id_field = _prefer_column(list(parcels.columns), ['id', 'parcel_id', 'flstnr', 'flurstueck', 'fid'])
+        parcels_web['id'] = parcels_web.apply(
+            lambda row: _stable_feature_id(
+                parcels.loc[row.name], parcel_id_field, prefix='parcel'
+            ),
+            axis=1,
+        )
 
         if measures is not None and not measures.empty:
             measures_web = measures.to_crs(web_crs)
