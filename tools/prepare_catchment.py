@@ -316,6 +316,65 @@ def _build_catchment_payload(
     }
 
 
+def _build_subcatchment_record(
+    sid: str,
+    area_ha: float,
+    flow_path: list[dict[str, Any]],
+    default_ia_ratio: float,
+    default_prf: int,
+    default_tc_factor: float,
+    default_cn: float,
+    cn_low_avg: float | None,
+    cn_march_avg: float | None,
+    slope_deg_mean: float,
+) -> dict[str, Any]:
+    reference_cn = _build_reference_cn(cn_low_avg, default_cn)
+    reference_cn_value = float(reference_cn['cn'])
+    return {
+        'id': sid,
+        'areaHa': round(float(area_ha), 3),
+        'iaRatio': float(default_ia_ratio),
+        'prf': int(default_prf),
+        'tcFactor': float(default_tc_factor),
+        'lagToOutletH': 0,
+        'reference': {
+            **reference_cn,
+            'tcH': _estimate_tc_h(flow_path),
+        },
+        'measureAreas': [
+            {
+                'id': f'{sid}-a',
+                'areaHa': round(float(area_ha), 3),
+                'patches': [
+                    {
+                        'id': f'{sid}-patch',
+                        'areaHa': round(float(area_ha), 3),
+                        'cn': reference_cn_value,
+                    }
+                ],
+                'flowPath': [
+                    {
+                        'type': seg['type'],
+                        'lengthM': round(float(seg['lengthM']), 2),
+                        'slope': round(float(seg['slope']), 6),
+                        'k': round(float(seg['k']), 3),
+                        'rHydM': round(float(seg['rHydM']), 4),
+                    }
+                    for seg in flow_path
+                ],
+                'lagToParentH': 0,
+                'measures': [],
+            }
+        ],
+        'meta': {
+            'meanSlopeDeg': round(slope_deg_mean, 3),
+            'cnMarchC': round(cn_march_avg, 2)
+            if cn_march_avg is not None and math.isfinite(cn_march_avg)
+            else None,
+        },
+    }
+
+
 def _line_length_m(coords: list[tuple[float, float]]) -> float:
     total = 0.0
     for a, b in zip(coords[:-1], coords[1:]):
@@ -378,12 +437,14 @@ def run_pipeline(args: argparse.Namespace) -> Path:
         if parcels.crs != target_crs:
             print(f'[prepare] Reprojecting parcels to {target_crs}')
             parcels = parcels.to_crs(target_crs)
-        if buildings is not None and buildings.crs != target_crs:
+        if buildings is not None:
             _ensure_projected(buildings)
-            buildings = buildings.to_crs(target_crs)
-        if measures is not None and measures.crs != target_crs:
+            if buildings.crs != target_crs:
+                buildings = buildings.to_crs(target_crs)
+        if measures is not None:
             _ensure_projected(measures)
-            measures = measures.to_crs(target_crs)
+            if measures.crs != target_crs:
+                measures = measures.to_crs(target_crs)
 
         union_geom = subcatchments.unary_union
         buffered = gpd.GeoSeries([union_geom], crs=target_crs).buffer(float(args.buffer_m)).iloc[0]
@@ -636,51 +697,18 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                     flow_path = [split for section in sections for split in _split_sheet_max_50m(section) if section['lengthM'] > 0]
 
                 sid = str(sc['id'])
-                reference_cn = _build_reference_cn(cn_low_avg, float(args.default_cn))
-                reference_cn_value = float(reference_cn['cn'])
-                subcatchment_record = {
-                    'id': sid,
-                    'areaHa': round(float(sc['areaHa']), 3),
-                    'iaRatio': float(args.default_ia_ratio),
-                    'prf': int(args.default_prf),
-                    'tcFactor': float(args.default_tc_factor),
-                    'lagToOutletH': 0,
-                    'reference': {
-                        **reference_cn,
-                        'tcH': _estimate_tc_h(flow_path),
-                    },
-                    'measureAreas': [
-                        {
-                            'id': f'{sid}-a',
-                            'areaHa': round(float(sc['areaHa']), 3),
-                            'patches': [
-                                {
-                                    'id': f'{sid}-patch',
-                                    'areaHa': round(float(sc['areaHa']), 3),
-                                    'cn': reference_cn_value,
-                                }
-                            ],
-                            'flowPath': [
-                                {
-                                    'type': seg['type'],
-                                    'lengthM': round(float(seg['lengthM']), 2),
-                                    'slope': round(float(seg['slope']), 6),
-                                    'k': round(float(seg['k']), 3),
-                                    'rHydM': round(float(seg['rHydM']), 4),
-                                }
-                                for seg in flow_path
-                            ],
-                            'lagToParentH': 0,
-                            'measures': [],
-                        }
-                    ],
-                    'meta': {
-                        'meanSlopeDeg': round(slope_deg_mean, 3),
-                        'cnMarchC': round(cn_march_avg, 2)
-                        if cn_march_avg is not None and math.isfinite(cn_march_avg)
-                        else None,
-                    },
-                }
+                subcatchment_record = _build_subcatchment_record(
+                    sid=sid,
+                    area_ha=float(sc['areaHa']),
+                    flow_path=flow_path,
+                    default_ia_ratio=float(args.default_ia_ratio),
+                    default_prf=int(args.default_prf),
+                    default_tc_factor=float(args.default_tc_factor),
+                    default_cn=float(args.default_cn),
+                    cn_low_avg=cn_low_avg,
+                    cn_march_avg=cn_march_avg,
+                    slope_deg_mean=slope_deg_mean,
+                )
                 subcatchment_records.append(subcatchment_record)
 
         # Export rasters for web

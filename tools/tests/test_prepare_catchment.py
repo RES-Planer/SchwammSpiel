@@ -63,6 +63,24 @@ class PrepareCatchmentExportTests(unittest.TestCase):
         self.assertEqual(payload['id'], 'goldbach')
         self.assertEqual(payload['mqLsKm2'], 15.53)
 
+    def test_subcatchment_record_marks_cn_fallback(self) -> None:
+        record = module._build_subcatchment_record(
+            sid='tgb-1',
+            area_ha=10.0,
+            flow_path=[{'type': 'hollow', 'lengthM': 300.0, 'slope': 0.02, 'k': 25.0, 'rHydM': 0.1}],
+            default_ia_ratio=0.1,
+            default_prf=484,
+            default_tc_factor=1.0,
+            default_cn=75.0,
+            cn_low_avg=None,
+            cn_march_avg=None,
+            slope_deg_mean=5.0,
+        )
+        self.assertEqual(record['reference']['cn'], 75.0)
+        self.assertEqual(record['reference']['cn_status'], 'fallback-default')
+        self.assertIn('cn_warning', record['reference'])
+        self.assertEqual(record['measureAreas'][0]['patches'][0]['cn'], 75.0)
+
 
 if __name__ == '__main__':
     unittest.main()
