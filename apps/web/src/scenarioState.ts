@@ -6,6 +6,15 @@ export type MeasureKind =
   | 'stonefield'
   | 'flowPathChange';
 
+const measureKinds: MeasureKind[] = [
+  'landUseChange',
+  'storageWithPipe',
+  'forestMulches',
+  'swale',
+  'stonefield',
+  'flowPathChange',
+];
+
 export type MeasureGeometry =
   | { type: 'Polygon'; coordinates: [number, number][] }
   | { type: 'LineString'; coordinates: [number, number][] }
@@ -184,8 +193,96 @@ export async function loadSharedScenarioForCatchment(
   catchmentId: string,
 ): Promise<ScenarioState | null> {
   const state = await fromShareFragment(fragment);
-  if (!state || state.catchmentId !== catchmentId) {
+  if (!isScenarioState(state) || state.catchmentId !== catchmentId) {
     return null;
   }
   return state;
+}
+
+export function isScenarioState(value: unknown): value is ScenarioState {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as {
+    version?: unknown;
+    catchmentId?: unknown;
+    measures?: unknown;
+  };
+  if (candidate.version !== 1 || typeof candidate.catchmentId !== 'string') {
+    return false;
+  }
+  if (!Array.isArray(candidate.measures)) {
+    return false;
+  }
+
+  return candidate.measures.every(isMeasureState);
+}
+
+function isMeasureState(value: unknown): value is MeasureState {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as {
+    id?: unknown;
+    kind?: unknown;
+    enabled?: unknown;
+    params?: unknown;
+    geometry?: unknown;
+  };
+  if (
+    typeof candidate.id !== 'string' ||
+    !measureKinds.includes(candidate.kind as MeasureKind) ||
+    typeof candidate.enabled !== 'boolean'
+  ) {
+    return false;
+  }
+
+  if (!candidate.params || typeof candidate.params !== 'object' || Array.isArray(candidate.params)) {
+    return false;
+  }
+  const params = candidate.params as Record<string, unknown>;
+  if (
+    !Object.values(params).every(
+      (entry) =>
+        typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean',
+    )
+  ) {
+    return false;
+  }
+
+  return isMeasureGeometry(candidate.geometry);
+}
+
+function isMeasureGeometry(value: unknown): value is MeasureState['geometry'] {
+  if (value === null) {
+    return true;
+  }
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const geometry = value as { type?: unknown; coordinates?: unknown };
+  if (geometry.type === 'LineString' && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates.every(isLngLatTuple);
+  }
+  if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates)) {
+    if (geometry.coordinates.length < 4 || !geometry.coordinates.every(isLngLatTuple)) {
+      return false;
+    }
+    const first = geometry.coordinates[0];
+    const last = geometry.coordinates[geometry.coordinates.length - 1];
+    return !!first && !!last && first[0] === last[0] && first[1] === last[1];
+  }
+  return false;
+}
+
+function isLngLatTuple(value: unknown): value is [number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    typeof value[0] === 'number' &&
+    Number.isFinite(value[0]) &&
+    typeof value[1] === 'number' &&
+    Number.isFinite(value[1])
+  );
 }

@@ -27,6 +27,7 @@ import {
   commitHistoryState,
   createHistoryState,
   createInitialScenarioState,
+  isScenarioState,
   loadSharedScenarioForCatchment,
   redoHistoryState,
   toShareFragment,
@@ -608,7 +609,7 @@ export function App() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result));
-        if (!isValidScenarioState(parsed)) {
+        if (!isScenarioState(parsed)) {
           throw new Error('invalid');
         }
         if (parsed.catchmentId !== catchmentId) {
@@ -1115,7 +1116,8 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
       const depthM = readNumber(measure.params.depthM, 1.2);
       const areaM2 = areaHa * 1e4;
       const suggestedVolumeM3 = readNumber(measure.params.suggestedVolumeM3, 0);
-      volumeM3 = suggestedVolumeM3 > 0 ? suggestedVolumeM3 : areaM2 * depthM;
+      const formFactor = measure.params.form === 'hollow' ? 2 / 3 : 1;
+      volumeM3 = suggestedVolumeM3 > 0 ? suggestedVolumeM3 : areaM2 * depthM * formFactor;
       excavationM3 = volumeM3;
     } else if (measure.kind === 'forestMulches') {
       const count = readNumber(measure.params.count, 3);
@@ -1192,89 +1194,6 @@ function parseHydrographSeries(value: string | number | boolean | undefined): nu
     .split(',')
     .map((entry) => Number(entry.trim()))
     .filter((entry) => Number.isFinite(entry) && entry >= 0);
-}
-
-function isValidScenarioState(value: unknown): value is ScenarioState {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-
-  const candidate = value as {
-    version?: unknown;
-    catchmentId?: unknown;
-    measures?: unknown;
-  };
-  if (candidate.version !== 1 || typeof candidate.catchmentId !== 'string') {
-    return false;
-  }
-  if (!Array.isArray(candidate.measures)) {
-    return false;
-  }
-
-  return candidate.measures.every(isValidMeasureState);
-}
-
-function isValidMeasureState(value: unknown): value is MeasureState {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const candidate = value as {
-    id?: unknown;
-    kind?: unknown;
-    enabled?: unknown;
-    params?: unknown;
-    geometry?: unknown;
-  };
-  if (
-    typeof candidate.id !== 'string' ||
-    !toolOrder.some((tool) => tool.kind === candidate.kind) ||
-    typeof candidate.enabled !== 'boolean'
-  ) {
-    return false;
-  }
-
-  if (!candidate.params || typeof candidate.params !== 'object' || Array.isArray(candidate.params)) {
-    return false;
-  }
-  const params = candidate.params as Record<string, unknown>;
-  if (
-    !Object.values(params).every(
-      (entry) =>
-        typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean',
-    )
-  ) {
-    return false;
-  }
-
-  return isValidMeasureGeometry(candidate.geometry);
-}
-
-function isValidMeasureGeometry(value: unknown): value is MeasureState['geometry'] {
-  if (value === null) {
-    return true;
-  }
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
-  const geometry = value as { type?: unknown; coordinates?: unknown };
-  if (geometry.type === 'LineString' && Array.isArray(geometry.coordinates)) {
-    return geometry.coordinates.every(isLngLatTuple);
-  }
-  if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates)) {
-    return geometry.coordinates.every(isLngLatTuple);
-  }
-  return false;
-}
-
-function isLngLatTuple(value: unknown): value is [number, number] {
-  return (
-    Array.isArray(value) &&
-    value.length === 2 &&
-    typeof value[0] === 'number' &&
-    Number.isFinite(value[0]) &&
-    typeof value[1] === 'number' &&
-    Number.isFinite(value[1])
-  );
 }
 
 function defaultParams(kind: MeasureKind): Record<string, number | string> {

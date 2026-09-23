@@ -7,6 +7,7 @@ import {
   decodeScenarioState,
   encodeScenarioState,
   fromShareFragment,
+  isScenarioState,
   loadSharedScenarioForCatchment,
   redoHistoryState,
   toShareFragment,
@@ -80,6 +81,40 @@ describe('scenario state helpers', () => {
 
     expect(forDemo).toBeNull();
     expect(forGoldbach).toEqual(state);
+  });
+
+  test('rejects malformed decoded scenario shapes', async () => {
+    const malformedPayload = `raw.${btoa(
+      JSON.stringify({ version: 1, catchmentId: 'demo', measures: [{ id: 1 }] }),
+    )
+      .replaceAll('+', '-')
+      .replaceAll('/', '_')
+      .replace(/=+$/g, '')}`;
+    const loaded = await loadSharedScenarioForCatchment(`#scenario=${malformedPayload}`, 'demo');
+
+    expect(loaded).toBeNull();
+    expect(
+      isScenarioState({
+        version: 1,
+        catchmentId: 'demo',
+        measures: [
+          {
+            id: 'm-1',
+            kind: 'landUseChange',
+            enabled: true,
+            params: {},
+            geometry: {
+              type: 'Polygon',
+              coordinates: [
+                [11.93, 49.945],
+                [11.931, 49.945],
+                [11.931, 49.946],
+              ],
+            },
+          },
+        ],
+      }),
+    ).toBe(false);
   });
 
   test('uses gz payload when compression streams are available', async () => {
