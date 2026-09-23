@@ -41,7 +41,7 @@ class InputPaths:
     dem_laz: list[Path]
 
 
-def _require_optional_dependencies() -> tuple[Any, Any, Any, Any, Any, Any]:
+def _require_optional_dependencies() -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     try:
         import geopandas as gpd
         import numpy as np
@@ -49,9 +49,9 @@ def _require_optional_dependencies() -> tuple[Any, Any, Any, Any, Any, Any]:
         from rasterio import features
         from rasterio.merge import merge
         from rasterio.mask import mask
-        from shapely.geometry import shape
+        from shapely.geometry import box, shape
 
-        return gpd, np, rasterio, features, merge, mask, shape
+        return gpd, np, rasterio, features, merge, mask, shape, box
     except ImportError as exc:  # pragma: no cover - runtime environment concern
         raise RuntimeError(
             'Missing GIS dependency. Install Python packages: geopandas rasterio shapely whitebox numpy.'
@@ -391,7 +391,7 @@ def _split_sheet_max_50m(segment: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def run_pipeline(args: argparse.Namespace) -> Path:
-    gpd, np, rasterio, features, merge, rio_mask, shape = _require_optional_dependencies()
+    gpd, np, rasterio, features, merge, rio_mask, shape, box = _require_optional_dependencies()
     WhiteboxTools = _require_whitebox()
 
     root = Path(args.root).resolve()
@@ -446,8 +446,13 @@ def run_pipeline(args: argparse.Namespace) -> Path:
             if measures.crs != target_crs:
                 measures = measures.to_crs(target_crs)
 
-        union_geom = subcatchments.unary_union
-        buffered = gpd.GeoSeries([union_geom], crs=target_crs).buffer(float(args.buffer_m)).iloc[0]
+        min_x, min_y, max_x, max_y = subcatchments.total_bounds
+        buffered = box(
+            min_x - float(args.buffer_m),
+            min_y - float(args.buffer_m),
+            max_x + float(args.buffer_m),
+            max_y + float(args.buffer_m),
+        )
 
         print(f'[prepare] DEM mosaic from {len(dem_tiles)} tile(s)')
         srcs = [rasterio.open(path) for path in dem_tiles]
@@ -597,6 +602,9 @@ def run_pipeline(args: argparse.Namespace) -> Path:
             streams_native = gpd.read_file(streams_vector)
             if streams_native.crs != target_crs:
                 streams_native = streams_native.to_crs(target_crs)
+            subcatchment_geoms = subcatchments[['id', 'geometry']].rename(columns={'id': 'scId'})
+            cn_by_sc = gpd.overlay(cn_overlay, subcatchment_geoms, how='intersection', keep_geom_type=True)
+            streams_by_sc = gpd.overlay(streams_native, subcatchment_geoms, how='intersection', keep_geom_type=True)
 
             k_sheet = _get_table_roughness_mean(
                 tables,
@@ -635,6 +643,7 @@ def run_pipeline(args: argparse.Namespace) -> Path:
             )
 
             for _, sc in subcatchments.iterrows():
+                sid = str(sc['id'])
                 geom = sc.geometry
                 clipped = rio_mask(slope_src, [geom], crop=True, filled=False)[0][0]
                 valid = np.ma.masked_invalid(clipped)
@@ -642,7 +651,7 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                     valid = np.ma.masked_where(clipped == nodata, valid)
                 slope_deg_mean = float(valid.mean()) if valid.count() > 0 else 0.0
 
-                cn_in_sc = gpd.overlay(cn_overlay, gpd.GeoDataFrame([{'geometry': geom}], crs=target_crs), how='intersection')
+                cn_in_sc = cn_by_sc[cn_by_sc['scId'] == sid]
                 if cn_in_sc.empty:
                     cn_low_avg = None
                     cn_march_avg = None
@@ -651,7 +660,7 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                     cn_low_avg = _weighted_mean_ignore_nan(cn_in_sc['cnLowSeasonality'], areas, np)
                     cn_march_avg = _weighted_mean_ignore_nan(cn_in_sc['cnMarchC'], areas, np)
 
-                flow_in_sc = gpd.clip(streams_native, gpd.GeoDataFrame([{'geometry': geom}], crs=target_crs))
+                flow_in_sc = streams_by_sc[streams_by_sc['scId'] == sid].copy()
                 if flow_in_sc.empty:
                     flow_path = [
                         {
@@ -696,7 +705,6 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                     ]
                     flow_path = [split for section in sections for split in _split_sheet_max_50m(section) if split['lengthM'] > 0]
 
-                sid = str(sc['id'])
                 subcatchment_record = _build_subcatchment_record(
                     sid=sid,
                     area_ha=float(sc['areaHa']),
@@ -762,10 +770,15 @@ def run_pipeline(args: argparse.Namespace) -> Path:
 
         # Reproject vectors to WGS84 and simplify for web size
         web_crs = 'EPSG:4326'
+        record_by_id = {record['id']: record for record in subcatchment_records}
         subcatchments_web = subcatchments[['id', 'areaHa', 'geometry']].copy().to_crs(web_crs)
         subcatchments_web['name'] = subcatchments_web['id']
-        subcatchments_web['cn'] = [rec['reference']['cn'] for rec in subcatchment_records]
-        subcatchments_web['tcH'] = [rec['reference']['tcH'] for rec in subcatchment_records]
+        subcatchments_web['cn'] = subcatchments_web['id'].map(
+            lambda sid: record_by_id.get(sid, {}).get('reference', {}).get('cn')
+        )
+        subcatchments_web['tcH'] = subcatchments_web['id'].map(
+            lambda sid: record_by_id.get(sid, {}).get('reference', {}).get('tcH')
+        )
 
         cn_zones_web = cn_overlay[['landuse', 'soilGroup', 'cnLowSeasonality', 'cnMarchC', 'areaHa', 'geometry']].copy().to_crs(web_crs)
         cn_zones_web = cn_zones_web.rename(columns={'cnLowSeasonality': 'cn'})

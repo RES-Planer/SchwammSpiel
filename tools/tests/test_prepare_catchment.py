@@ -79,13 +79,15 @@ class PrepareCatchmentExportTests(unittest.TestCase):
             default_tc_factor=1.0,
             default_cn=75.0,
             cn_low_avg=None,
-            cn_march_avg=None,
+            cn_march_avg=81.234,
             slope_deg_mean=5.0,
         )
         self.assertEqual(record['reference']['cn'], 75.0)
+        self.assertEqual(record['reference']['tcH'], 0.2)
         self.assertEqual(record['reference']['cn_status'], 'fallback-default')
         self.assertIn('cn_warning', record['reference'])
         self.assertEqual(record['measureAreas'][0]['patches'][0]['cn'], 75.0)
+        self.assertEqual(record['meta']['cnMarchC'], 81.23)
 
 
 if __name__ == '__main__':
