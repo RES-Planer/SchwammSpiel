@@ -1108,9 +1108,21 @@ export function App() {
     if (!hasLocalOverrides) {
       return;
     }
-    applyScenarioUpdate((current) => ({
-      ...current,
-      measures: current.measures.map((measure) => {
+    applyScenarioUpdate((current) => {
+      let changed = false;
+      const measures = current.measures.map((measure) => {
+        const hasMeasureOverrides =
+          measure.params.localAreaShare !== undefined ||
+          measure.params.localFlowPathChainageM !== undefined ||
+          measure.params.localCutM3 !== undefined ||
+          measure.params.localFillM3 !== undefined ||
+          measure.params.localMassBalanceM3 !== undefined ||
+          measure.params.localWarningCodes !== undefined ||
+          measure.params.localTerrainSignature !== undefined;
+        if (!hasMeasureOverrides) {
+          return measure;
+        }
+        changed = true;
         const {
           localAreaShare,
           localFlowPathChainageM,
@@ -1132,8 +1144,14 @@ export function App() {
           ...measure,
           params,
         };
-      }),
-    }));
+      });
+      return changed
+        ? {
+            ...current,
+            measures,
+          }
+        : current;
+    });
   }, [manifest?.terrain, scenario.measures]);
 
   const applyStorageSuggestion = () => {

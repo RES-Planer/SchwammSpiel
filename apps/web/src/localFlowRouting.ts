@@ -526,9 +526,7 @@ function computeAccumulation(window: TerrainWindow, directions: Int32Array): num
           continue;
         }
         const index = toIndex(window, col, row);
-        if (directions[index] >= 0) {
-          accumulation[index] = Math.max(1, window.baseAccumulationCells[index] ?? 1);
-        }
+        accumulation[index] = Math.max(1, window.baseAccumulationCells[index] ?? 1);
       }
     }
   }
