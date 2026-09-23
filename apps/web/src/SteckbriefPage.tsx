@@ -8,9 +8,10 @@ import { decodeScenarioState, isScenarioState } from './scenarioState';
 
 type Props = {
   scenarioPayload: string | null;
+  rainEventId: string | null;
 };
 
-export function SteckbriefPage({ scenarioPayload }: Props) {
+export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
   const locale = useMemo<Locale>(() => {
     const params = new URLSearchParams(window.location.search);
     const candidate = params.get('lang');
@@ -85,7 +86,7 @@ export function SteckbriefPage({ scenarioPayload }: Props) {
           <button type="button" onClick={() => window.print()}>
             {t(locale, 'steckbrief.print')}
           </button>
-          <a href={`${window.location.pathname}${window.location.search}`}>{t(locale, 'steckbrief.back')}</a>
+          <a href={buildBackToAppUrl(scenarioPayload)}>{t(locale, 'steckbrief.back')}</a>
         </div>
       </header>
 
@@ -107,7 +108,7 @@ export function SteckbriefPage({ scenarioPayload }: Props) {
               </div>
               <div>
                 <dt>{t(locale, 'steckbrief.rainEvent')}</dt>
-                <dd>{catchment.rainEvents[0]?.name ?? catchment.rainEvents[0]?.id ?? '–'}</dd>
+                <dd>{resolveRainEventLabel(catchment, rainEventId)}</dd>
               </div>
             </dl>
 
@@ -130,4 +131,17 @@ export function SteckbriefPage({ scenarioPayload }: Props) {
       </section>
     </main>
   );
+}
+
+function resolveRainEventLabel(catchment: Catchment, rainEventId: string | null): string {
+  const selected =
+    catchment.rainEvents.find((rainEvent) => rainEvent.id === rainEventId) ?? catchment.rainEvents[0];
+  return selected?.name ?? selected?.id ?? '–';
+}
+
+function buildBackToAppUrl(scenarioPayload: string | null): string {
+  if (!scenarioPayload) {
+    return `${window.location.pathname}${window.location.search}`;
+  }
+  return `${window.location.pathname}${window.location.search}#scenario=${scenarioPayload}`;
 }

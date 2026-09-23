@@ -17,7 +17,7 @@ function Root() {
 
   const route = parseHashRoute(hash);
   if (route.kind === 'steckbrief') {
-    return <SteckbriefPage scenarioPayload={route.scenarioPayload} />;
+    return <SteckbriefPage scenarioPayload={route.scenarioPayload} rainEventId={route.rainEventId} />;
   }
   return <App />;
 }

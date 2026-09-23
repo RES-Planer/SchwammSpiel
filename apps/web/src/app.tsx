@@ -1056,7 +1056,11 @@ export function App() {
     try {
       const fragment = await toShareFragment(scenario);
       const url = new URL(window.location.href);
-      url.hash = `/steckbrief/?${fragment}`;
+      const params = new URLSearchParams(fragment);
+      if (selectedRainEventId) {
+        params.set('rainEventId', selectedRainEventId);
+      }
+      url.hash = `/steckbrief/?${params.toString()}`;
       window.location.assign(url.toString());
     } catch {
       setShareMessageKey('scenario.share.invalid');

@@ -12,10 +12,16 @@ describe('parseHashRoute', () => {
     expect(parseHashRoute('#/steckbrief/')).toEqual({
       kind: 'steckbrief',
       scenarioPayload: null,
+      rainEventId: null,
     });
-    expect(parseHashRoute('#/steckbrief/?scenario=raw.abc')).toEqual({
+    expect(parseHashRoute('#/steckbrief/?scenario=raw.abc&rainEventId=evt-20')).toEqual({
       kind: 'steckbrief',
       scenarioPayload: 'raw.abc',
+      rainEventId: 'evt-20',
     });
+  });
+
+  test('rejects non-matching steckbrief prefixes', () => {
+    expect(parseHashRoute('#/steckbrief-foo')).toEqual({ kind: 'app' });
   });
 });
