@@ -98,4 +98,40 @@ describe('localFlowRouting', () => {
     expect(analysis.dominantFlowPathM[0]?.[0]).toBeLessThan(5);
     expect(analysis.dominantFlowPathM.at(-1)?.[0]).toBeGreaterThan(18);
   });
+
+  test('boundary inflow seeds from baseAccumulationCells affect local recomputation', () => {
+    const baselineWindow = buildSlopeWindow(12, 12, 2);
+    const enhancedBoundaryWindow = {
+      ...baselineWindow,
+      baseAccumulationCells: baselineWindow.elevationsM.map((_, index) => {
+        const row = Math.floor(index / 12);
+        return row === 0 ? 25 : 1;
+      }),
+    };
+
+    const withoutBoundaryInflow = analyzeLocalFlowRouting(baselineWindow, {
+      kind: 'swale',
+      coordinates: [
+        [2, 12],
+        [22, 12],
+      ],
+      bottomWidthM: 2,
+      depthM: 1,
+      sideSlopeM: 2,
+    });
+    const withBoundaryInflow = analyzeLocalFlowRouting(enhancedBoundaryWindow, {
+      kind: 'swale',
+      coordinates: [
+        [2, 12],
+        [22, 12],
+      ],
+      bottomWidthM: 2,
+      depthM: 1,
+      sideSlopeM: 2,
+    });
+
+    expect(Math.max(...withBoundaryInflow.accumulationCells)).toBeGreaterThan(
+      Math.max(...withoutBoundaryInflow.accumulationCells),
+    );
+  });
 });

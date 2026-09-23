@@ -84,9 +84,15 @@ function assertFinitePositive(name: string, value: number): void {
   }
 }
 
+function assertPositiveInteger(name: string, value: number): void {
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`${name} must be a positive integer`);
+  }
+}
+
 function assertWindow(window: TerrainWindow): void {
-  assertFinitePositive('width', window.width);
-  assertFinitePositive('height', window.height);
+  assertPositiveInteger('width', window.width);
+  assertPositiveInteger('height', window.height);
   assertFinitePositive('cellSizeM', window.cellSizeM);
   if (window.elevationsM.length !== window.width * window.height) {
     throw new Error('elevationsM length must match width*height');

@@ -1091,6 +1091,51 @@ export function App() {
     }
   }, [manifest?.terrain, scenario.measures]);
 
+  useEffect(() => {
+    if (manifest?.terrain) {
+      return;
+    }
+    const hasLocalOverrides = scenario.measures.some(
+      (measure) =>
+        measure.params.localAreaShare !== undefined ||
+        measure.params.localFlowPathChainageM !== undefined ||
+        measure.params.localCutM3 !== undefined ||
+        measure.params.localFillM3 !== undefined ||
+        measure.params.localMassBalanceM3 !== undefined ||
+        measure.params.localWarningCodes !== undefined ||
+        measure.params.localTerrainSignature !== undefined,
+    );
+    if (!hasLocalOverrides) {
+      return;
+    }
+    applyScenarioUpdate((current) => ({
+      ...current,
+      measures: current.measures.map((measure) => {
+        const {
+          localAreaShare,
+          localFlowPathChainageM,
+          localCutM3,
+          localFillM3,
+          localMassBalanceM3,
+          localWarningCodes,
+          localTerrainSignature,
+          ...params
+        } = measure.params;
+        void localAreaShare;
+        void localFlowPathChainageM;
+        void localCutM3;
+        void localFillM3;
+        void localMassBalanceM3;
+        void localWarningCodes;
+        void localTerrainSignature;
+        return {
+          ...measure,
+          params,
+        };
+      }),
+    }));
+  }, [manifest?.terrain, scenario.measures]);
+
   const applyStorageSuggestion = () => {
     if (!selectedMeasure || selectedMeasure.kind !== 'storageWithPipe') {
       return;
