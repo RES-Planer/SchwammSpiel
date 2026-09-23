@@ -467,7 +467,7 @@ export function App() {
       addedLayerIdsRef.current = [];
       addedSourceIdsRef.current = [];
     };
-  }, [catchmentId, manifest, mapReady]);
+  }, [catchmentId, locale, manifest, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
