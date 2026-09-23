@@ -45,6 +45,12 @@ describe('map data helpers', () => {
         {
           id: 'visible',
           name: { de: 'Sichtbar' },
+          type: 'vector-style',
+          url: 'https://tiles.openfreemap.org/styles/liberty',
+        },
+        {
+          id: 'overlay',
+          name: { de: 'Overlay' },
           type: 'geojson',
           layerType: 'fill',
           path: 'visible.geojson',
@@ -60,7 +66,12 @@ describe('map data helpers', () => {
       ],
     };
 
-    expect(createInitialVisibility(manifest.layers)).toEqual({ basemap: false, visible: true, hidden: false });
+    expect(createInitialVisibility(manifest.layers)).toEqual({
+      basemap: false,
+      visible: true,
+      overlay: true,
+      hidden: false,
+    });
   });
 
   test('collects deduplicated localized attributions', () => {

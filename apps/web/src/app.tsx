@@ -28,7 +28,9 @@ import {
   resolveCatchmentId,
   type CatchmentManifest,
   type LayerManifest,
+  type SourceLayerManifest,
   type SubcatchmentDetails,
+  type VectorStyleLayerManifest,
 } from './mapData';
 import { buildManifestLayer, buildManifestSource } from './manifestLayers';
 import {
@@ -178,6 +180,7 @@ export function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const addedLayerIdsRef = useRef<string[]>([]);
   const addedSourceIdsRef = useRef<string[]>([]);
+  const activeBaseStyleRef = useRef<string | null>(null);
   const catchmentId = useMemo(() => resolveCatchmentId(window.location.search), []);
   const [scenarioHistory, setScenarioHistory] = useState<HistoryState<ScenarioState>>(() =>
     createHistoryState(createInitialScenarioState(catchmentId)),
@@ -187,6 +190,10 @@ export function App() {
   const numberFormatter = useMemo(
     () => new Intl.NumberFormat(localeTag, { maximumFractionDigits: 1 }),
     [localeTag],
+  );
+  const activeBaseStyleUrl = useMemo(
+    () => findVisibleVectorStyleLayer(manifest?.layers ?? [], layerVisibility)?.url ?? null,
+    [layerVisibility, manifest],
   );
 
   useEffect(() => {
@@ -444,30 +451,58 @@ export function App() {
       return undefined;
     }
 
-    removeManifestLayers(map, addedLayerIdsRef.current, addedSourceIdsRef.current);
-    const addedLayerIds: string[] = [];
-    const addedSourceIds: string[] = [];
+    const nextBaseStyleKey = activeBaseStyleUrl ?? '__default__';
 
-    for (const layer of manifest.layers) {
-      const sourceId = sourceIdFor(layer.id);
-      const layerId = layerIdFor(layer.id);
-      map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId, locale));
-      map.addLayer(buildManifestLayer(layer, layerId, sourceId));
+    const applyManifestLayers = () => {
+      removeManifestLayers(map, addedLayerIdsRef.current, addedSourceIdsRef.current);
+      const addedLayerIds: string[] = [];
+      const addedSourceIds: string[] = [];
 
-      addedLayerIds.push(layerId);
-      addedSourceIds.push(sourceId);
+      for (const layer of manifest.layers) {
+        if (!isSourceLayer(layer)) {
+          continue;
+        }
+
+        const sourceId = sourceIdFor(layer.id);
+        const layerId = layerIdFor(layer.id);
+        map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId, locale));
+        map.addLayer(buildManifestLayer(layer, layerId, sourceId));
+
+        const isVisible = layerVisibility[layer.id] ?? layer.visibleByDefault ?? true;
+        map.setLayoutProperty(layerId, 'visibility', isVisible ? 'visible' : 'none');
+
+        addedLayerIds.push(layerId);
+        addedSourceIds.push(sourceId);
+      }
+
+      addedLayerIdsRef.current = addedLayerIds;
+      addedSourceIdsRef.current = addedSourceIds;
+      map.fitBounds(manifest.bounds, { padding: { top: 72, right: 24, bottom: 72, left: 24 }, duration: 0 });
+    };
+
+    if (activeBaseStyleRef.current !== nextBaseStyleKey) {
+      activeBaseStyleRef.current = nextBaseStyleKey;
+
+      const handleStyleLoad = () => {
+        applyManifestLayers();
+      };
+
+      map.once('style.load', handleStyleLoad);
+      map.setStyle(activeBaseStyleUrl ?? mapStyle);
+
+      return () => {
+        map.off('style.load', handleStyleLoad);
+      };
     }
 
-    addedLayerIdsRef.current = addedLayerIds;
-    addedSourceIdsRef.current = addedSourceIds;
-    map.fitBounds(manifest.bounds, { padding: { top: 72, right: 24, bottom: 72, left: 24 }, duration: 0 });
+    applyManifestLayers();
 
     return () => {
-      removeManifestLayers(map, addedLayerIds, addedSourceIds);
+      removeManifestLayers(map, addedLayerIdsRef.current, addedSourceIdsRef.current);
       addedLayerIdsRef.current = [];
       addedSourceIdsRef.current = [];
     };
-  }, [catchmentId, locale, manifest, mapReady]);
+  }, [activeBaseStyleUrl, catchmentId, locale, manifest, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -476,6 +511,9 @@ export function App() {
     }
 
     for (const layer of manifest.layers) {
+      if (!isSourceLayer(layer)) {
+        continue;
+      }
       const layerId = layerIdFor(layer.id);
       if (!map.getLayer(layerId)) {
         continue;
@@ -1531,6 +1569,23 @@ function sourceIdFor(layerId: string): string {
 
 function layerIdFor(layerId: string): string {
   return `catchment-layer-${layerId}`;
+}
+
+function isSourceLayer(layer: LayerManifest): layer is SourceLayerManifest {
+  return layer.type !== 'vector-style';
+}
+
+function findVisibleVectorStyleLayer(
+  layers: LayerManifest[],
+  visibility: Record<string, boolean>,
+): VectorStyleLayerManifest | null {
+  const activeLayer = [...layers]
+    .reverse()
+    .find(
+      (layer): layer is VectorStyleLayerManifest =>
+        layer.type === 'vector-style' && (visibility[layer.id] ?? layer.visibleByDefault ?? true),
+    );
+  return activeLayer ?? null;
 }
 
 function removeManifestLayers(map: maplibregl.Map, layerIds: string[], sourceIds: string[]): void {
