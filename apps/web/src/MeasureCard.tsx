@@ -30,6 +30,10 @@ export function MeasureCard({
     volumeM3: number;
     excavationM3: number;
     warnings: string[];
+    cutM3: number | null;
+    fillM3: number | null;
+    massBalanceM3: number | null;
+    capturedAreaShare: number | null;
   };
   landUseEvaluation: LandUseChangeEvaluation | null;
   onToggle: () => void;
@@ -74,6 +78,35 @@ export function MeasureCard({
           <dd>{formatValue(numberFormatter, summary.excavationM3, 'm³')}</dd>
         </div>
       </dl>
+      {summary.cutM3 !== null ||
+      summary.fillM3 !== null ||
+      summary.massBalanceM3 !== null ||
+      summary.capturedAreaShare !== null ? (
+        <dl className="measure-metrics">
+          <div>
+            <dt>{t(locale, 'measure.metric.cutM3')}</dt>
+            <dd>{summary.cutM3 === null ? '–' : formatValue(numberFormatter, summary.cutM3, 'm³')}</dd>
+          </div>
+          <div>
+            <dt>{t(locale, 'measure.metric.fillM3')}</dt>
+            <dd>{summary.fillM3 === null ? '–' : formatValue(numberFormatter, summary.fillM3, 'm³')}</dd>
+          </div>
+          <div>
+            <dt>{t(locale, 'measure.metric.massBalanceM3')}</dt>
+            <dd>
+              {summary.massBalanceM3 === null ? '–' : formatValue(numberFormatter, summary.massBalanceM3, 'm³')}
+            </dd>
+          </div>
+          <div>
+            <dt>{t(locale, 'measure.metric.capturedAreaPct')}</dt>
+            <dd>
+              {summary.capturedAreaShare === null
+                ? '–'
+                : formatValue(numberFormatter, summary.capturedAreaShare * 100, '%')}
+            </dd>
+          </div>
+        </dl>
+      ) : null}
       {landUseEvaluation ? (
         <dl className="measure-metrics">
           <div>

@@ -36,7 +36,18 @@ import {
   type CatchmentManifest,
   type LayerManifest,
   type SubcatchmentDetails,
+  type SyntheticTerrainManifest,
 } from './mapData';
+import {
+  analyzeBaselineTerrain,
+  type LocalPointM,
+  type LocalTerrainMeasure,
+  type TerrainWindow,
+} from './localFlowRouting';
+import type {
+  LocalFlowRoutingWorkerRequest,
+  LocalFlowRoutingWorkerResponse,
+} from './localFlowRouting.worker';
 import { buildManifestLayer, buildManifestSource } from './manifestLayers';
 import {
   buildRainChartSeries,
@@ -82,6 +93,10 @@ type MeasureSummary = {
   volumeM3: number;
   excavationM3: number;
   warnings: string[];
+  cutM3: number | null;
+  fillM3: number | null;
+  massBalanceM3: number | null;
+  capturedAreaShare: number | null;
 };
 
 type MapFeature =
@@ -167,7 +182,9 @@ export function App() {
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const workerRef = useRef<Worker | null>(null);
+  const localRoutingWorkerRef = useRef<Worker | null>(null);
   const workerRequestIdRef = useRef(0);
+  const localRoutingRequestIdRef = useRef(0);
   const scaleControlRef = useRef<maplibregl.ScaleControl | null>(null);
   const attributionControlRef = useRef<maplibregl.AttributionControl | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -253,6 +270,50 @@ export function App() {
 
     return () => {
       workerRef.current = null;
+      worker.terminate();
+    };
+  }, []);
+
+  useEffect(() => {
+    const worker = new Worker(new URL('./localFlowRouting.worker.ts', import.meta.url), { type: 'module' });
+    localRoutingWorkerRef.current = worker;
+    worker.onmessage = (event: MessageEvent<LocalFlowRoutingWorkerResponse>) => {
+      if (!event.data.ok) {
+        return;
+      }
+      updateMeasure(event.data.measureId, (measure) => {
+        const nextWarningCodes = event.data.analysis.warningCodes.join(',');
+        const nextParams = {
+          ...measure.params,
+          localAreaShare: Number(event.data.analysis.capturedAreaShare.toFixed(4)),
+          localFlowPathChainageM:
+            event.data.analysis.dominantFlowPathChainageM === null
+              ? ''
+              : Number(event.data.analysis.dominantFlowPathChainageM.toFixed(1)),
+          localCutM3: Number(event.data.analysis.cutM3.toFixed(1)),
+          localFillM3: Number(event.data.analysis.fillM3.toFixed(1)),
+          localMassBalanceM3: Number(event.data.analysis.massBalanceM3.toFixed(1)),
+          localWarningCodes: nextWarningCodes,
+        };
+        const changed =
+          measure.params.localAreaShare !== nextParams.localAreaShare ||
+          measure.params.localFlowPathChainageM !== nextParams.localFlowPathChainageM ||
+          measure.params.localCutM3 !== nextParams.localCutM3 ||
+          measure.params.localFillM3 !== nextParams.localFillM3 ||
+          measure.params.localMassBalanceM3 !== nextParams.localMassBalanceM3 ||
+          measure.params.localWarningCodes !== nextWarningCodes;
+        if (!changed) {
+          return measure;
+        }
+        return {
+          ...measure,
+          params: nextParams,
+        };
+      });
+    };
+
+    return () => {
+      localRoutingWorkerRef.current = null;
       worker.terminate();
     };
   }, []);
@@ -988,6 +1049,40 @@ export function App() {
       measures: current.measures.map((measure) => (measure.id === id ? updater(measure) : measure)),
     }));
   };
+
+  useEffect(() => {
+    const worker = localRoutingWorkerRef.current;
+    const terrain = manifest?.terrain;
+    if (!worker || !terrain) {
+      return;
+    }
+
+    for (const measure of scenario.measures) {
+      const signature = buildLocalRoutingSignature(measure, terrain);
+      if (!signature || measure.params.localTerrainSignature === signature) {
+        continue;
+      }
+      const request = buildLocalRoutingRequest(measure, terrain);
+      if (!request) {
+        continue;
+      }
+      updateMeasure(measure.id, (current) => ({
+        ...current,
+        params: {
+          ...current.params,
+          localTerrainSignature: signature,
+        },
+      }));
+      const requestId = localRoutingRequestIdRef.current + 1;
+      localRoutingRequestIdRef.current = requestId;
+      const workerRequest: LocalFlowRoutingWorkerRequest = {
+        id: requestId,
+        measureId: measure.id,
+        ...request,
+      };
+      worker.postMessage(workerRequest);
+    }
+  }, [manifest?.terrain, scenario.measures]);
 
   const applyStorageSuggestion = () => {
     if (!selectedMeasure || selectedMeasure.kind !== 'storageWithPipe') {
@@ -1756,6 +1851,29 @@ function readNumber(value: string | number | boolean | undefined, fallback: numb
   return fallback;
 }
 
+function readOptionalNumber(value: string | number | boolean | undefined): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function readWarningCodes(value: string | number | boolean | undefined): string[] {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+}
+
 function geometryAreaHa(geometry: MeasureState['geometry']): number {
   if (!geometry || geometry.type !== 'Polygon') {
     return 0;
@@ -1776,6 +1894,10 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
   const warnings: string[] = [];
   let volumeM3 = 0;
   let excavationM3 = 0;
+  const cutM3 = readOptionalNumber(measure.params.localCutM3);
+  const fillM3 = readOptionalNumber(measure.params.localFillM3);
+  const massBalanceM3 = readOptionalNumber(measure.params.localMassBalanceM3);
+  const capturedAreaShare = readOptionalNumber(measure.params.localAreaShare);
 
   try {
     if (measure.kind === 'storageWithPipe') {
@@ -1784,7 +1906,7 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
       const suggestedVolumeM3 = readNumber(measure.params.suggestedVolumeM3, 0);
       const formFactor = measure.params.form === 'hollow' ? 2 / 3 : 1;
       volumeM3 = suggestedVolumeM3 > 0 ? suggestedVolumeM3 : areaM2 * depthM * formFactor;
-      excavationM3 = volumeM3;
+      excavationM3 = cutM3 ?? volumeM3;
     } else if (measure.kind === 'forestMulches') {
       const count = readNumber(measure.params.count, 3);
       const volumeEachM3 = readNumber(measure.params.volumeEachM3, 8);
@@ -1792,7 +1914,17 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
       excavationM3 = volumeM3;
     } else if (measure.kind === 'swale') {
       if (lengthM <= 0) {
-        return { areaHa, lengthM, volumeM3: 0, excavationM3: 0, warnings };
+        return {
+          areaHa,
+          lengthM,
+          volumeM3: 0,
+          excavationM3: 0,
+          warnings,
+          cutM3,
+          fillM3,
+          massBalanceM3,
+          capturedAreaShare,
+        };
       }
       const geometry = swaleGeometry({
         lengthM: Math.max(1, lengthM),
@@ -1804,7 +1936,7 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
       const contourWarnings = validateSwaleContourAlignment(elevationProfile).map((warning) => warning.code);
       warnings.push(...contourWarnings);
       volumeM3 = geometry.vMaxM3;
-      excavationM3 = geometry.excavationM3;
+      excavationM3 = cutM3 ?? geometry.excavationM3;
     } else if (measure.kind === 'stonefield') {
       const areaM2 = Math.max(1, areaHa * 1e4);
       const widthM = Math.max(0.5, readNumber(measure.params.widthM, Math.sqrt(areaM2)));
@@ -1832,6 +1964,7 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
   } catch {
     warnings.push('invalid-parameters');
   }
+  warnings.push(...readWarningCodes(measure.params.localWarningCodes));
 
   return {
     areaHa,
@@ -1839,6 +1972,10 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
     volumeM3,
     excavationM3,
     warnings,
+    cutM3,
+    fillM3,
+    massBalanceM3,
+    capturedAreaShare,
   };
 }
 
@@ -1860,6 +1997,128 @@ function parseHydrographSeries(value: string | number | boolean | undefined): nu
     .split(',')
     .map((entry) => Number(entry.trim()))
     .filter((entry) => Number.isFinite(entry) && entry >= 0);
+}
+
+function measureSupportsLocalRouting(measure: MeasureState): boolean {
+  return measure.kind === 'swale' || measure.kind === 'storageWithPipe';
+}
+
+function geometryAnchor(geometry: MeasureState['geometry']): LngLat | null {
+  if (!geometry) {
+    return null;
+  }
+  if (geometry.type === 'LineString') {
+    const middle = geometry.coordinates[Math.floor(geometry.coordinates.length / 2)];
+    return middle ?? null;
+  }
+  if (geometry.coordinates.length === 0) {
+    return null;
+  }
+  const [sumLng, sumLat] = geometry.coordinates.reduce(
+    (sum, coordinate) => [sum[0] + coordinate[0], sum[1] + coordinate[1]] as [number, number],
+    [0, 0],
+  );
+  return [sumLng / geometry.coordinates.length, sumLat / geometry.coordinates.length];
+}
+
+function toLocalMeters(origin: LngLat, coordinate: LngLat): LocalPointM {
+  const meanLatRad = ((origin[1] + coordinate[1]) * Math.PI) / 360;
+  const metersPerLat = 111_320;
+  const metersPerLng = Math.cos(meanLatRad) * 111_320;
+  return [(coordinate[0] - origin[0]) * metersPerLng, (coordinate[1] - origin[1]) * metersPerLat];
+}
+
+function shiftIntoWindow(coordinates: LocalPointM[], windowSizeM: number): LocalPointM[] {
+  return coordinates.map(([xM, yM]) => [xM + windowSizeM / 2, yM + windowSizeM / 2]);
+}
+
+function buildTerrainWindow(terrain: SyntheticTerrainManifest): TerrainWindow {
+  const width = Math.max(1, Math.round(terrain.windowSizeM / terrain.cellSizeM));
+  const height = width;
+  const elevationsM: number[] = [];
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 0; col < width; col += 1) {
+      const xM = (col + 0.5) * terrain.cellSizeM - terrain.windowSizeM / 2;
+      const yM = (row + 0.5) * terrain.cellSizeM - terrain.windowSizeM / 2;
+      elevationsM.push(terrain.baseElevationM + terrain.slopeXM * xM + terrain.slopeYM * yM);
+    }
+  }
+  const window: TerrainWindow = {
+    width,
+    height,
+    cellSizeM: terrain.cellSizeM,
+    elevationsM,
+  };
+  const baseline = analyzeBaselineTerrain(window);
+  return {
+    ...window,
+    baseAccumulationCells: baseline.accumulationCells,
+  };
+}
+
+function buildLocalRoutingRequest(
+  measure: MeasureState,
+  terrain: SyntheticTerrainManifest,
+): Pick<LocalFlowRoutingWorkerRequest, 'window' | 'measure'> | null {
+  if (!measureSupportsLocalRouting(measure) || !measure.geometry) {
+    return null;
+  }
+  const anchor = geometryAnchor(measure.geometry);
+  if (!anchor) {
+    return null;
+  }
+  const window = buildTerrainWindow(terrain);
+  const toWindowCoordinates = (coordinates: LngLat[]): LocalPointM[] =>
+    shiftIntoWindow(
+      coordinates.map((coordinate) => toLocalMeters(anchor, coordinate)),
+      terrain.windowSizeM,
+    );
+
+  let routingMeasure: LocalTerrainMeasure | null = null;
+  if (measure.kind === 'swale' && measure.geometry.type === 'LineString') {
+    routingMeasure = {
+      kind: 'swale',
+      coordinates: toWindowCoordinates(measure.geometry.coordinates),
+      bottomWidthM: readNumber(measure.params.bottomWidthM, 0.5),
+      depthM: readNumber(measure.params.depthM, 0.5),
+      sideSlopeM: readNumber(measure.params.sideSlopeM, 2),
+    };
+  } else if (measure.kind === 'storageWithPipe' && measure.geometry.type === 'Polygon') {
+    routingMeasure = {
+      kind: 'storageWithPipe',
+      coordinates: toWindowCoordinates(measure.geometry.coordinates),
+      depthM: readNumber(measure.params.depthM, 1.2),
+    };
+  }
+
+  if (!routingMeasure) {
+    return null;
+  }
+  return {
+    window,
+    measure: routingMeasure,
+  };
+}
+
+function buildLocalRoutingSignature(measure: MeasureState, terrain: SyntheticTerrainManifest): string | null {
+  if (!measureSupportsLocalRouting(measure) || !measure.geometry) {
+    return null;
+  }
+  return JSON.stringify({
+    terrain,
+    kind: measure.kind,
+    geometry: measure.geometry,
+    params:
+      measure.kind === 'swale'
+        ? {
+            bottomWidthM: readNumber(measure.params.bottomWidthM, 0.5),
+            depthM: readNumber(measure.params.depthM, 0.5),
+            sideSlopeM: readNumber(measure.params.sideSlopeM, 2),
+          }
+        : {
+            depthM: readNumber(measure.params.depthM, 1.2),
+          },
+  });
 }
 
 function formatCurrency(localeTag: string, value: number): string {

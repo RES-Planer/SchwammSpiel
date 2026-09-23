@@ -183,4 +183,70 @@ describe('measureToScenario land-use CN evaluation', () => {
     });
     expect(Math.abs(((converted as { cn?: number }).cn ?? 0) - 82.08)).toBeLessThanOrEqual(0.05);
   });
+
+  test('uses locally recomputed swale area share and chainage when present', () => {
+    const catchment: Catchment = {
+      id: 'demo',
+      name: 'Demo',
+      mqLsKm2: 0,
+      rainEvents: [{ id: 'event-1', pMm: 10, durationH: 1, rainShape: 'block' }],
+      subcatchments: [
+        {
+          id: 'sub-1',
+          areaHa: 1,
+          iaRatio: 0.2,
+          prf: 484,
+          tcFactor: 1,
+          lagToOutletH: 0,
+          reference: { cn: 75, tcH: 1 },
+          measureAreas: [
+            {
+              id: 'area-1',
+              areaHa: 1,
+              patches: [{ id: 'patch-1', areaHa: 1, cn: 75 }],
+              flowPath: [{ type: 'hollow', lengthM: 120, slope: 0.03, k: 25, rHydM: 0.1 }],
+              lagToParentH: 0,
+              measures: [],
+            },
+          ],
+        },
+      ],
+    };
+    const measure: MeasureState = {
+      id: 'swale-1',
+      kind: 'swale',
+      enabled: true,
+      geometry: {
+        type: 'LineString',
+        coordinates: [
+          [11.93, 49.945],
+          [11.931, 49.945],
+        ],
+      },
+      params: {
+        bottomWidthM: 0.5,
+        depthM: 0.5,
+        sideSlopeM: 2,
+        landCoverK: 12,
+        localAreaShare: 0.72,
+        localFlowPathChainageM: 48,
+        targetSubcatchmentId: 'sub-1',
+        targetMeasureAreaId: 'area-1',
+      },
+    };
+
+    const evaluable = buildEvaluableCatchment(
+      catchment,
+      [measure],
+      [],
+      'sub-1',
+      new Map([[measure.id, { areaHa: 0.1, lengthM: 80, volumeM3: 20, excavationM3: 20 }]]),
+    );
+
+    expect(evaluable.subcatchments[0]?.measureAreas[0]?.measures[0]).toMatchObject({
+      kind: 'swale',
+      areaShare: 0.72,
+      chainageM: 48,
+    });
+  });
 });
