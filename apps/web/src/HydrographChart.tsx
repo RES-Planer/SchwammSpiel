@@ -42,13 +42,22 @@ function buildCommonTimeAxis(before: ScenarioHydrograph, after: ScenarioHydrogra
 }
 
 function alignRainfallToTimes(timesH: number[], rainfall: Props['rainfall']): number[] {
-  return timesH.map((timeH) => {
-    const index = rainfall.timeH.findIndex((entry, position) => {
-      const next = rainfall.timeH[position + 1] ?? Number.POSITIVE_INFINITY;
-      return timeH >= entry && timeH < next;
-    });
-    return index >= 0 ? -(rainfall.intensityMmH[index] ?? 0) : 0;
-  });
+  const values: number[] = [];
+  let rainfallIndex = 0;
+
+  for (const timeH of timesH) {
+    while (
+      rainfallIndex + 1 < rainfall.timeH.length &&
+      timeH >= (rainfall.timeH[rainfallIndex + 1] ?? Number.POSITIVE_INFINITY)
+    ) {
+      rainfallIndex += 1;
+    }
+    const start = rainfall.timeH[rainfallIndex] ?? Number.POSITIVE_INFINITY;
+    const end = rainfall.timeH[rainfallIndex + 1] ?? Number.POSITIVE_INFINITY;
+    values.push(timeH >= start && timeH < end ? -(rainfall.intensityMmH[rainfallIndex] ?? 0) : 0);
+  }
+
+  return values;
 }
 
 export function HydrographChart({ locale, labels, rainfall, before, after }: Props) {

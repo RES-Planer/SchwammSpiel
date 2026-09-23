@@ -115,18 +115,34 @@ describe('scenario result helpers', () => {
         params: { count: 2 },
         geometry: null,
       },
+      {
+        id: 'stone-1',
+        kind: 'stonefield',
+        enabled: true,
+        params: {},
+        geometry: null,
+      },
+      {
+        id: 'flow-1',
+        kind: 'flowPathChange',
+        enabled: true,
+        params: {},
+        geometry: null,
+      },
     ];
     const summaries = new Map([
       ['storage-1', { areaHa: 0.1, lengthM: 0, volumeM3: 80, excavationM3: 80 }],
       ['mulch-1', { areaHa: 0, lengthM: 0, volumeM3: 0, excavationM3: 0 }],
+      ['stone-1', { areaHa: 0.05, lengthM: 0, volumeM3: 10, excavationM3: 10 }],
+      ['flow-1', { areaHa: 0.02, lengthM: 40, volumeM3: 0, excavationM3: 0 }],
     ]);
 
     const estimate = estimateScenarioCost(measures, summaries, unitCosts);
 
-    expect(estimate.excavationEur).toBeCloseTo(1920, 8);
-    expect(estimate.areaUseEur).toBeCloseTo(1800, 8);
-    expect(estimate.extrasEur).toBeCloseTo(360, 8);
-    expect(estimate.totalEur).toBeCloseTo(4080, 8);
+    expect(estimate.excavationEur).toBeCloseTo(2160, 8);
+    expect(estimate.areaUseEur).toBeCloseTo(3060, 8);
+    expect(estimate.extrasEur).toBeCloseTo(17160, 8);
+    expect(estimate.totalEur).toBeCloseTo(22380, 8);
   });
 
   test('assigns measures to polygons by geometry anchor or fallback', () => {

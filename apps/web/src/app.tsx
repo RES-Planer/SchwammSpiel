@@ -1518,7 +1518,9 @@ export function App() {
                             catchmentData,
                             evaluationResult,
                             subcatchmentPolygons,
-                            selectedSubcatchment?.id ?? catchmentData?.subcatchments[0]?.id ?? '',
+                            selectedProtectionPointId === OUTLET_PROTECTION_POINT_ID
+                              ? selectedSubcatchment?.id ?? catchmentData?.subcatchments[0]?.id ?? ''
+                              : selectedProtectionPointId,
                           )}
                         </dd>
                       </div>
@@ -2513,7 +2515,7 @@ function buildAnimatedFlowPathCollection(
         ? evaluationResult.after
         : (evaluationResult.subcatchments.find((entry) => entry.id === targetPolygon?.id)?.after ??
           evaluationResult.after);
-    const qNorm = interpolateHydrographQ(hydrograph, timeH) / maxQ;
+    const qNorm = Math.max(0, Math.min(1, interpolateHydrographQ(hydrograph, timeH) / maxQ));
     return {
       ...feature,
       properties: {
