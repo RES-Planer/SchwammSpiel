@@ -440,11 +440,9 @@ label,
   }
 
   .steckbrief-header {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
     font-size: 0.85rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid #cbd5e1;
   }
 
   .steckbrief-actions,
@@ -454,6 +452,6 @@ label,
 
   .steckbrief-page {
     border: 0;
-    padding: 20mm 0 0;
+    padding: 0;
   }
 }

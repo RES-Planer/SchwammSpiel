@@ -24,4 +24,8 @@ describe('parseHashRoute', () => {
   test('rejects non-matching steckbrief prefixes', () => {
     expect(parseHashRoute('#/steckbrief-foo')).toEqual({ kind: 'app' });
   });
+
+  test('treats app scenario hashes as app route', () => {
+    expect(parseHashRoute('#scenario=raw.abc&rainEventId=evt-20')).toEqual({ kind: 'app' });
+  });
 });

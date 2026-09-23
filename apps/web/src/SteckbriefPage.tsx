@@ -86,7 +86,7 @@ export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
           <button type="button" onClick={() => window.print()}>
             {t(locale, 'steckbrief.print')}
           </button>
-          <a href={buildBackToAppUrl(scenarioPayload)}>{t(locale, 'steckbrief.back')}</a>
+          <a href={buildBackToAppUrl(scenarioPayload, rainEventId)}>{t(locale, 'steckbrief.back')}</a>
         </div>
       </header>
 
@@ -139,9 +139,14 @@ function resolveRainEventLabel(catchment: Catchment, rainEventId: string | null)
   return selected?.name ?? selected?.id ?? '–';
 }
 
-function buildBackToAppUrl(scenarioPayload: string | null): string {
+function buildBackToAppUrl(scenarioPayload: string | null, rainEventId: string | null): string {
   if (!scenarioPayload) {
     return `${window.location.pathname}${window.location.search}`;
   }
-  return `${window.location.pathname}${window.location.search}#scenario=${scenarioPayload}`;
+  const params = new URLSearchParams();
+  params.set('scenario', scenarioPayload);
+  if (rainEventId) {
+    params.set('rainEventId', rainEventId);
+  }
+  return `${window.location.pathname}${window.location.search}#${params.toString()}`;
 }
