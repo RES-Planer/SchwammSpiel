@@ -50,4 +50,36 @@ describe('localFlowRouting', () => {
 
     expect(analysis.warningCodes).toContain('not-contour-parallel');
   });
+
+  test('dominant path follows a non-top outlet boundary on east-west drainage', () => {
+    const elevationsM: number[] = [];
+    for (let row = 0; row < 20; row += 1) {
+      for (let col = 0; col < 20; col += 1) {
+        elevationsM.push(1000 - col * 0.5);
+      }
+    }
+
+    const analysis = analyzeLocalFlowRouting(
+      {
+        width: 20,
+        height: 20,
+        cellSizeM: 2,
+        elevationsM,
+      },
+      {
+        kind: 'swale',
+        coordinates: [
+          [20, 2],
+          [20, 38],
+        ],
+        bottomWidthM: 2,
+        depthM: 1,
+        sideSlopeM: 2,
+      },
+    );
+
+    expect(analysis.dominantFlowPathChainageM).toBeGreaterThan(10);
+    expect(analysis.dominantFlowPathM[0]?.[0]).toBeLessThan(5);
+    expect(analysis.dominantFlowPathM.at(-1)?.[0]).toBeGreaterThan(18);
+  });
 });

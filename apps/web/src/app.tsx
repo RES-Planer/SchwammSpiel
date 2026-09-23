@@ -185,6 +185,7 @@ export function App() {
   const localRoutingWorkerRef = useRef<Worker | null>(null);
   const workerRequestIdRef = useRef(0);
   const localRoutingRequestIdRef = useRef(0);
+  const localRoutingLatestRequestByMeasureRef = useRef(new Map<string, number>());
   const scaleControlRef = useRef<maplibregl.ScaleControl | null>(null);
   const attributionControlRef = useRef<maplibregl.AttributionControl | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -280,6 +281,10 @@ export function App() {
     worker.onmessage = (event: MessageEvent<LocalFlowRoutingWorkerResponse>) => {
       const response = event.data;
       if (!response.ok) {
+        return;
+      }
+      const latestRequestId = localRoutingLatestRequestByMeasureRef.current.get(response.measureId) ?? 0;
+      if (response.id < latestRequestId) {
         return;
       }
       updateMeasure(response.measureId, (measure) => {
@@ -1076,6 +1081,7 @@ export function App() {
       }));
       const requestId = localRoutingRequestIdRef.current + 1;
       localRoutingRequestIdRef.current = requestId;
+      localRoutingLatestRequestByMeasureRef.current.set(measure.id, requestId);
       const workerRequest: LocalFlowRoutingWorkerRequest = {
         id: requestId,
         measureId: measure.id,

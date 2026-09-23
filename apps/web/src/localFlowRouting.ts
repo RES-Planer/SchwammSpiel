@@ -513,7 +513,9 @@ function computeAccumulation(window: TerrainWindow, directions: Int32Array): num
           continue;
         }
         const index = toIndex(window, col, row);
-        accumulation[index] = Math.max(1, window.baseAccumulationCells[index] ?? 1);
+        if (directions[index] >= 0) {
+          accumulation[index] = Math.max(1, window.baseAccumulationCells[index] ?? 1);
+        }
       }
     }
   }
@@ -569,24 +571,61 @@ function upstreamCaptureCells(directions: Int32Array, targetIndexes: number[]): 
 }
 
 function traceDominantPath(window: TerrainWindow, directions: Int32Array, accumulation: number[]): LocalPointM[] {
-  let startIndex = 0;
+  let outletIndex = 0;
   let bestAccumulation = -1;
-  for (let col = 0; col < window.width; col += 1) {
-    const index = toIndex(window, col, 0);
-    const current = accumulation[index] ?? 0;
-    if (current > bestAccumulation) {
-      bestAccumulation = current;
-      startIndex = index;
+  for (let row = 0; row < window.height; row += 1) {
+    for (let col = 0; col < window.width; col += 1) {
+      if (!isBoundaryCell(window, col, row)) {
+        continue;
+      }
+      const index = toIndex(window, col, row);
+      const current = accumulation[index] ?? 0;
+      const isOutlet = directions[index] < 0;
+      if (isOutlet && current > bestAccumulation) {
+        bestAccumulation = current;
+        outletIndex = index;
+      }
     }
   }
+  if (bestAccumulation < 0) {
+    for (let row = 0; row < window.height; row += 1) {
+      for (let col = 0; col < window.width; col += 1) {
+        const index = toIndex(window, col, row);
+        const current = accumulation[index] ?? 0;
+        if (current > bestAccumulation) {
+          bestAccumulation = current;
+          outletIndex = index;
+        }
+      }
+    }
+  }
+
+  const upstream = reverseGraph(directions);
   const path: LocalPointM[] = [];
+  const reversedPath: LocalPointM[] = [];
   const seen = new Set<number>();
-  let currentIndex = startIndex;
+  let currentIndex = outletIndex;
   while (currentIndex >= 0 && !seen.has(currentIndex)) {
     seen.add(currentIndex);
     const { col, row } = fromIndex(window, currentIndex);
-    path.push(cellCenterM(window, col, row));
-    currentIndex = directions[currentIndex] ?? -1;
+    reversedPath.push(cellCenterM(window, col, row));
+    const candidates = upstream[currentIndex] ?? [];
+    let nextUpstream = -1;
+    let nextAccumulation = -1;
+    for (const candidate of candidates) {
+      const candidateAccumulation = accumulation[candidate] ?? 0;
+      if (candidateAccumulation > nextAccumulation) {
+        nextAccumulation = candidateAccumulation;
+        nextUpstream = candidate;
+      }
+    }
+    currentIndex = nextUpstream;
+  }
+  for (let index = reversedPath.length - 1; index >= 0; index -= 1) {
+    const point = reversedPath[index];
+    if (point) {
+      path.push(point);
+    }
   }
   return path;
 }
