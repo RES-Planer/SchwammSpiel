@@ -34,7 +34,7 @@
       "target_q_max_m3s": 1.12,
       "lag_fixed_to_zero": true
     },
-    { "id": "tgb-7", "area_ha": 31.9, "cn": 73.6, "cn_status": "estimated-from-B7", "ia_ratio": 0.085, "prf": 250, "target_q_max_m3s": 0.22, "note": "keine Massnahmenflaeche in der Arbeit; Ia/S und PRF wie TGB 3 angenommen" }
+    { "id": "tgb-7", "area_ha": 31.9, "cn": 73.6, "cn_status": "estimated-from-B7", "ia_ratio": 0.085, "prf": 250, "target_q_max_m3s": 0.22 }
   ],
   "expected_tc_h_after_calibration": { "tgb-1": 1.5, "tgb-2": 3.4, "tgb-3": 3.6, "tgb-4": 3.4, "tgb-5": 3.1, "tgb-6": 1.9, "tgb-7": 2.8 },
   "note": "Mit diesen Eingaben liegt die Summe der sieben Ganglinien ohne Verschiebung bei 4.56 m3/s; kleine Verschiebungen (0 bis ca. 1 h) reichen fuer 4.46 m3/s."
