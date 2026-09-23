@@ -125,5 +125,9 @@
   "result.metric.excavation": "Excavation",
   "result.metric.cost": "Rough cost",
   "result.chart.rainAria": "Rain hyetograph",
-  "result.chart.hydrographAria": "Hydrographs"
+  "result.chart.hydrographAria": "Hydrographs",
+  "result.assumptions.limit1": "No gauge validation → results are scenario comparisons, not forecasts. The CN method is strongly simplified.",
+  "result.assumptions.limit2": "Storage sizing is a preliminary concept, not a detailed design.",
+  "result.assumptions.limit3": "Decentralized measures mainly help up to about HQ20.",
+  "result.cost.todoData": "TODO(DATA): Replace placeholder values with agreed unit prices."
 }

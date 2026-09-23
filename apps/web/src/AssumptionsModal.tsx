@@ -2,7 +2,6 @@ import { assumptions } from '@schwammspiel/engine';
 
 import type { Locale } from './i18n';
 import { t } from './i18n';
-import { SPEC_SECTION_11_LINES } from './scenarioResults';
 
 type Props = {
   locale: Locale;
@@ -34,9 +33,9 @@ export function AssumptionsModal({ locale, open, onClose }: Props) {
         <section className="assumptions-section">
           <h3>{t(locale, 'result.assumptions.specSection')}</h3>
           <ul className="limits-list">
-            {SPEC_SECTION_11_LINES.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
+            <li>{t(locale, 'result.assumptions.limit1')}</li>
+            <li>{t(locale, 'result.assumptions.limit2')}</li>
+            <li>{t(locale, 'result.assumptions.limit3')}</li>
           </ul>
         </section>
 

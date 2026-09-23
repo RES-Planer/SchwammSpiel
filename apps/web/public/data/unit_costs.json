@@ -5,5 +5,5 @@
   "forestMulchPerItemEur": 180,
   "stonefieldPerM2Eur": 32,
   "flowPathChangePerM2Eur": 4,
-  "note": "TODO(DATA): Platzhalterwerte aus data/unit_costs.json durch abgestimmte Einheitspreise ersetzen."
+  "noteKey": "result.cost.todoData"
 }

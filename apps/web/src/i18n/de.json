@@ -125,5 +125,9 @@
   "result.metric.excavation": "Aushub",
   "result.metric.cost": "Grobe Kosten",
   "result.chart.rainAria": "Regenhyetograph",
-  "result.chart.hydrographAria": "Abflussganglinien"
+  "result.chart.hydrographAria": "Abflussganglinien",
+  "result.assumptions.limit1": "Keine Pegelvalidierung → Ergebnisse sind Szenarienvergleiche, keine Prognosen. CN-Verfahren stark vereinfacht.",
+  "result.assumptions.limit2": "Speicherbemessung ist Vorentwurf, keine Ausführungsplanung.",
+  "result.assumptions.limit3": "Dezentrale Wirkung v. a. bis etwa HQ20.",
+  "result.cost.todoData": "TODO(DATA): Platzhalterwerte durch abgestimmte Einheitspreise ersetzen."
 }

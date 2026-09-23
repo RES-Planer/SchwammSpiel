@@ -23,7 +23,7 @@ const unitCosts: UnitCosts = {
   forestMulchPerItemEur: 180,
   stonefieldPerM2Eur: 32,
   flowPathChangePerM2Eur: 4,
-  note: 'TODO(DATA)',
+  noteKey: 'result.cost.todoData',
 };
 
 const result: ScenarioEvaluationResult = {

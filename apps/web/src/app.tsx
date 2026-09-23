@@ -740,13 +740,22 @@ export function App() {
     source.setData(
       measuresToFeatureCollection(
         scenario.measures,
+        catchmentData,
         evaluationResult,
         animationIndex,
         subcatchmentPolygons,
         measureSummaries,
       ),
     );
-  }, [animationIndex, evaluationResult, mapReady, measureSummaries, scenario.measures, subcatchmentPolygons]);
+  }, [
+    animationIndex,
+    catchmentData,
+    evaluationResult,
+    mapReady,
+    measureSummaries,
+    scenario.measures,
+    subcatchmentPolygons,
+  ]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -856,6 +865,11 @@ export function App() {
         ...defaultParams(kind),
         targetSubcatchmentId:
           selectedSubcatchment?.id ?? catchmentData?.subcatchments[0]?.id ?? '',
+        targetMeasureAreaId:
+          catchmentData?.subcatchments.find((subcatchment) => subcatchment.id === selectedSubcatchment?.id)
+            ?.measureAreas[0]?.id ??
+          catchmentData?.subcatchments[0]?.measureAreas[0]?.id ??
+          '',
       },
     };
 
@@ -1463,6 +1477,7 @@ export function App() {
                             numberFormatter,
                             scenario.measures,
                             measureSummaries,
+                            catchmentData,
                             evaluationResult,
                             subcatchmentPolygons,
                             selectedSubcatchment?.id ?? catchmentData?.subcatchments[0]?.id ?? '',
@@ -1482,7 +1497,7 @@ export function App() {
                         <dd>{costEstimate ? formatCurrency(localeTag, costEstimate.totalEur) : '–'}</dd>
                       </div>
                     </dl>
-                    {unitCosts?.note ? <p className="hint-text">{unitCosts.note}</p> : null}
+                    {unitCosts?.noteKey ? <p className="hint-text">{t(locale, unitCosts.noteKey)}</p> : null}
                     {evaluationResult.warnings.length > 0 ? (
                       <ul className="warning-list">
                         {evaluationResult.warnings.map((warning) => (
@@ -1571,6 +1586,7 @@ function emptyFeatureCollection(): MapFeatureCollection {
 
 function measuresToFeatureCollection(
   measures: MeasureState[],
+  catchmentData: Catchment | null,
   evaluationResult: ScenarioEvaluationResult | null,
   animationIndex: number,
   subcatchmentPolygons: SubcatchmentPolygon[],
@@ -1583,6 +1599,7 @@ function measuresToFeatureCollection(
     }
     const visuals = evaluateMeasureVisualState(
       measure,
+      catchmentData,
       evaluationResult,
       animationIndex,
       subcatchmentPolygons,
@@ -2183,13 +2200,36 @@ function interpolateHydrographQ(hydrograph: ScenarioHydrograph, timeH: number): 
   return loQ + (hiQ - loQ) * fraction;
 }
 
+function measureAreaShare(summaryAreaHa: number, targetAreaHa: number): number {
+  return Math.min(0.95, Math.max(0.05, Math.max(summaryAreaHa, 0.1) / Math.max(targetAreaHa, 0.1)));
+}
+
+function selectTargetMeasureAreaId(
+  catchment: Catchment,
+  targetSubcatchmentId: string,
+  measure: MeasureState,
+): string | null {
+  const targetSubcatchment = catchment.subcatchments.find((entry) => entry.id === targetSubcatchmentId);
+  if (!targetSubcatchment) {
+    return null;
+  }
+  const explicitTarget = measure.params.targetMeasureAreaId;
+  if (
+    typeof explicitTarget === 'string' &&
+    targetSubcatchment.measureAreas.some((measureArea) => measureArea.id === explicitTarget)
+  ) {
+    return explicitTarget;
+  }
+  return targetSubcatchment.measureAreas[0]?.id ?? null;
+}
+
 function buildEvaluableCatchment(
   catchment: Catchment,
   measures: MeasureState[],
   subcatchmentPolygons: SubcatchmentPolygon[],
   fallbackSubcatchmentId: string,
 ): Catchment {
-  const measuresBySubcatchment = new Map<string, ScenarioMeasure[]>();
+  const measuresByAreaId = new Map<string, ScenarioMeasure[]>();
 
   for (const measure of measures) {
     if (!measure.enabled) {
@@ -2201,21 +2241,22 @@ function buildEvaluableCatchment(
       fallbackSubcatchmentId,
     );
     const converted = toScenarioMeasure(catchment, targetSubcatchmentId, measure);
-    if (!converted) {
+    const targetMeasureAreaId = selectTargetMeasureAreaId(catchment, targetSubcatchmentId, measure);
+    if (!converted || !targetMeasureAreaId) {
       continue;
     }
-    const bucket = measuresBySubcatchment.get(targetSubcatchmentId) ?? [];
+    const bucket = measuresByAreaId.get(targetMeasureAreaId) ?? [];
     bucket.push(converted);
-    measuresBySubcatchment.set(targetSubcatchmentId, bucket);
+    measuresByAreaId.set(targetMeasureAreaId, bucket);
   }
 
   return {
     ...catchment,
     subcatchments: catchment.subcatchments.map((subcatchment) => ({
       ...subcatchment,
-      measureAreas: subcatchment.measureAreas.map((measureArea, index) => ({
+      measureAreas: subcatchment.measureAreas.map((measureArea) => ({
         ...measureArea,
-        measures: index === 0 ? (measuresBySubcatchment.get(subcatchment.id) ?? []) : measureArea.measures,
+        measures: [...measureArea.measures, ...(measuresByAreaId.get(measureArea.id) ?? [])],
       })),
     })),
   };
@@ -2229,10 +2270,7 @@ function toScenarioMeasure(
   const targetSubcatchment = catchment.subcatchments.find((entry) => entry.id === targetSubcatchmentId);
   const targetMeasureArea = targetSubcatchment?.measureAreas[0];
   const summary = summarizeMeasure(measure);
-  const areaShare = Math.min(
-    0.95,
-    Math.max(0.05, targetSubcatchment ? Math.max(summary.areaHa, 0.1) / targetSubcatchment.areaHa : 0.15),
-  );
+  const areaShare = targetSubcatchment ? measureAreaShare(summary.areaHa, targetSubcatchment.areaHa) : 0.15;
   const baseFlowPath = targetMeasureArea?.flowPath ?? [];
   const chainageM = baseFlowPath.reduce((sum, segment) => sum + segment.lengthM, 0) * 0.35;
 
@@ -2366,6 +2404,7 @@ function readFlowSegmentType(value: string | number | boolean | undefined): Excl
 
 function evaluateMeasureVisualState(
   measure: MeasureState,
+  catchmentData: Catchment | null,
   evaluationResult: ScenarioEvaluationResult | null,
   animationIndex: number,
   subcatchmentPolygons: SubcatchmentPolygon[],
@@ -2388,7 +2427,9 @@ function evaluateMeasureVisualState(
   if (!subcatchment) {
     return { fillRatio: 0, overflowing: false };
   }
-  const areaShare = Math.min(0.95, Math.max(0.05, (summary?.areaHa ?? 0.05) / Math.max(0.1, subcatchment.areaUsedHa || 1)));
+  const targetAreaHa =
+    catchmentData?.subcatchments.find((entry) => entry.id === targetSubcatchmentId)?.areaHa ?? 0.1;
+  const areaShare = measureAreaShare(summary?.areaHa ?? 0.05, targetAreaHa);
   const dtS = subcatchment.after.dtH * 3600;
   let storedM3 = 0;
   for (let index = 0; index <= animationIndex; index += 1) {
@@ -2443,6 +2484,7 @@ function buildFillAndPeakLabel(
   formatter: Intl.NumberFormat,
   measures: MeasureState[],
   measureSummaries: Map<string, MeasureSummaryLike>,
+  catchmentData: Catchment | null,
   evaluationResult: ScenarioEvaluationResult,
   subcatchmentPolygons: SubcatchmentPolygon[],
   fallbackSubcatchmentId: string,
@@ -2460,7 +2502,8 @@ function buildFillAndPeakLabel(
     const targetId = findMeasureSubcatchmentId(measure, subcatchmentPolygons, fallbackSubcatchmentId);
     const hydrograph =
       evaluationResult.subcatchments.find((entry) => entry.id === targetId)?.after ?? evaluationResult.after;
-    const areaShare = Math.min(0.95, Math.max(0.05, summary.areaHa > 0 ? summary.areaHa / 1 : 0.1));
+    const targetAreaHa = catchmentData?.subcatchments.find((entry) => entry.id === targetId)?.areaHa ?? 0.1;
+    const areaShare = measureAreaShare(summary.areaHa, targetAreaHa);
     const fillTimeH = estimateFillTimeH(hydrograph, summary.volumeM3, areaShare);
     if (fillTimeH !== null && (earliestFillH === null || fillTimeH < earliestFillH)) {
       earliestFillH = fillTimeH;

@@ -11,7 +11,7 @@ export type UnitCosts = {
   forestMulchPerItemEur: number;
   stonefieldPerM2Eur: number;
   flowPathChangePerM2Eur: number;
-  note: string;
+  noteKey: string;
 };
 
 export type ProtectionPointOption = {
@@ -50,12 +50,6 @@ const RAIN_SHAPE_MITTENBETONT: Array<[number, number]> = [
   [1, 1],
 ];
 
-export const SPEC_SECTION_11_LINES = [
-  'Keine Pegelvalidierung → Ergebnisse sind Szenarienvergleiche, keine Prognosen. CN-Verfahren stark vereinfacht.',
-  'Speicherbemessung ist Vorentwurf, keine Ausführungsplanung.',
-  'Dezentrale Wirkung v. a. bis etwa HQ20.',
-] as const;
-
 function interpolateCumulativeFraction(points: Array<[number, number]>, timeFraction: number): number {
   const clamped = Math.max(0, Math.min(1, timeFraction));
   for (let index = 1; index < points.length; index += 1) {
@@ -92,7 +86,7 @@ export function buildRainChartSeries(rainEvent: ScenarioRainEvent, dtH: number):
   const intensityMmH: number[] = [];
   let previousFraction = 0;
 
-  for (let index = 0; index <= stepCount; index += 1) {
+  for (let index = 0; index < stepCount; index += 1) {
     const endFraction = Math.min(1, ((index + 1) * safeDtH) / rainEvent.durationH);
     const cumulativeFraction = interpolateCumulativeFraction(cumulativeShape, endFraction);
     const deltaFraction = Math.max(0, cumulativeFraction - previousFraction);

@@ -125,5 +125,9 @@
   "result.metric.excavation": "Výkop",
   "result.metric.cost": "Hrubé náklady",
   "result.chart.rainAria": "Hyetogram srážek",
-  "result.chart.hydrographAria": "Hydrogramy"
+  "result.chart.hydrographAria": "Hydrogramy",
+  "result.assumptions.limit1": "Bez validace na vodoměru → výsledky jsou srovnání scénářů, nikoli předpověď. Metoda CN je silně zjednodušená.",
+  "result.assumptions.limit2": "Návrh retence je pouze předběžný koncept, nikoli prováděcí projekt.",
+  "result.assumptions.limit3": "Decentralizovaná opatření pomáhají hlavně zhruba do HQ20.",
+  "result.cost.todoData": "TODO(DATA): Nahraďte zástupné hodnoty dohodnutými jednotkovými cenami."
 }
