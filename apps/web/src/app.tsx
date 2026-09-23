@@ -2010,6 +2010,12 @@ function measureSupportsLocalRouting(measure: MeasureState): boolean {
   return measure.kind === 'swale' || measure.kind === 'storageWithPipe';
 }
 
+function polygonRingCoordinates(
+  geometry: Extract<MeasureState['geometry'], { type: 'Polygon' }>,
+): LngLat[] {
+  return geometry.coordinates;
+}
+
 function geometryAnchor(geometry: MeasureState['geometry']): LngLat | null {
   if (!geometry) {
     return null;
@@ -2018,14 +2024,15 @@ function geometryAnchor(geometry: MeasureState['geometry']): LngLat | null {
     const middle = geometry.coordinates[Math.floor(geometry.coordinates.length / 2)];
     return middle ?? null;
   }
-  if (geometry.coordinates.length === 0) {
+  const ring = polygonRingCoordinates(geometry);
+  if (ring.length === 0) {
     return null;
   }
-  const [sumLng, sumLat] = geometry.coordinates.reduce(
+  const [sumLng, sumLat] = ring.reduce(
     (sum, coordinate) => [sum[0] + coordinate[0], sum[1] + coordinate[1]] as [number, number],
     [0, 0],
   );
-  return [sumLng / geometry.coordinates.length, sumLat / geometry.coordinates.length];
+  return [sumLng / ring.length, sumLat / ring.length];
 }
 
 function toLocalMeters(origin: LngLat, coordinate: LngLat): LocalPointM {
@@ -2091,9 +2098,10 @@ function buildLocalRoutingRequest(
       sideSlopeM: readNumber(measure.params.sideSlopeM, 2),
     };
   } else if (measure.kind === 'storageWithPipe' && measure.geometry.type === 'Polygon') {
+    const ring = polygonRingCoordinates(measure.geometry);
     routingMeasure = {
       kind: 'storageWithPipe',
-      coordinates: toWindowCoordinates(measure.geometry.coordinates),
+      coordinates: toWindowCoordinates(ring),
       depthM: readNumber(measure.params.depthM, 1.2),
     };
   }

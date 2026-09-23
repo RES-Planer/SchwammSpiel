@@ -146,13 +146,20 @@ function pointInPolygon(point: LocalPointM, polygon: LocalPointM[]): boolean {
   return inside;
 }
 
-function meanLineSlopeDropM(window: TerrainWindow, coordinates: LocalPointM[]): number {
+function accumulatedLineSlopeDropM(window: TerrainWindow, coordinates: LocalPointM[]): number {
   if (coordinates.length < 2) {
     return 0;
   }
-  const start = sampleElevationM(window, coordinates[0]);
-  const end = sampleElevationM(window, coordinates[coordinates.length - 1]);
-  return Math.abs(end - start);
+  let dropM = 0;
+  for (let index = 1; index < coordinates.length; index += 1) {
+    const previous = coordinates[index - 1];
+    const current = coordinates[index];
+    if (!previous || !current) {
+      continue;
+    }
+    dropM += Math.abs(sampleElevationM(window, current) - sampleElevationM(window, previous));
+  }
+  return dropM;
 }
 
 function sampleElevationM(window: TerrainWindow, point: LocalPointM): number {
@@ -687,7 +694,7 @@ export function analyzeLocalFlowRouting(
   const dominantFlowPathM = traceDominantPath(window, directions, accumulation);
   const dominantFlowPathChainageM = pathChainageAtEditedCell(window, directions, accumulation, editedCellSet);
   const warningCodes =
-    measure.kind === 'swale' && meanLineSlopeDropM(window, measure.coordinates) > 0.3
+    measure.kind === 'swale' && accumulatedLineSlopeDropM(window, measure.coordinates) > 0.3
       ? ['not-contour-parallel']
       : [];
 

@@ -51,6 +51,22 @@ describe('localFlowRouting', () => {
     expect(analysis.warningCodes).toContain('not-contour-parallel');
   });
 
+  test('bent swale still warns when intermediate segments run downslope', () => {
+    const analysis = analyzeLocalFlowRouting(buildSlopeWindow(20, 20, 2), {
+      kind: 'swale',
+      coordinates: [
+        [4, 4],
+        [20, 20],
+        [36, 4],
+      ],
+      bottomWidthM: 2,
+      depthM: 1,
+      sideSlopeM: 2,
+    });
+
+    expect(analysis.warningCodes).toContain('not-contour-parallel');
+  });
+
   test('dominant path follows a non-top outlet boundary on east-west drainage', () => {
     const elevationsM: number[] = [];
     for (let row = 0; row < 20; row += 1) {
