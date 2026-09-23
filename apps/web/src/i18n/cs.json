@@ -6,7 +6,7 @@
   "app.language.en": "English",
   "app.mapLabel": "Mapa",
   "app.scenarioNote": "Srovnání scénářů, nikoli předpověď",
-  "map.attribution": "© přispěvatelé OpenStreetMap",
+  "map.attribution": "Zdroje:",
   "map.layers": "Vrstvy",
   "map.legend": "Legenda",
   "map.legend.empty": "Není zobrazena žádná vrstva.",

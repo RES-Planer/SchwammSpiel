@@ -41,7 +41,14 @@ export type ImageLayerManifest = BaseLayerManifest & {
   coordinates: [[number, number], [number, number], [number, number], [number, number]];
 };
 
-export type LayerManifest = GeoJsonLayerManifest | ImageLayerManifest;
+export type RasterTileLayerManifest = BaseLayerManifest & {
+  type: 'raster';
+  layerType: 'raster';
+  tiles: string[];
+  tileSize?: number;
+};
+
+export type LayerManifest = GeoJsonLayerManifest | ImageLayerManifest | RasterTileLayerManifest;
 
 export type CatchmentManifest = {
   id: string;

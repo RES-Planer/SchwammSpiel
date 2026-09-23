@@ -64,19 +64,14 @@ import './app.css';
 
 const mapStyle: maplibregl.StyleSpecification = {
   version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
+  sources: {},
   layers: [
     {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm',
+      id: 'background',
+      type: 'background',
+      paint: {
+        'background-color': '#f8fafc',
+      },
     },
   ],
 };
@@ -466,31 +461,29 @@ export function App() {
           type: 'geojson',
           data: buildDataUrl(import.meta.env.BASE_URL, catchmentId, layer.path),
         });
-        map.addLayer({
-          id: layerId,
-          type: layer.layerType,
-          source: sourceId,
-          paint,
-          layout,
-          minzoom: layer.minzoom,
-          maxzoom: layer.maxzoom,
-        } as maplibregl.AddLayerObject);
-      } else {
+      } else if (layer.type === 'image') {
         map.addSource(sourceId, {
           type: 'image',
           url: buildDataUrl(import.meta.env.BASE_URL, catchmentId, layer.path),
           coordinates: layer.coordinates,
         });
-        map.addLayer({
-          id: layerId,
-          type: layer.layerType,
-          source: sourceId,
-          paint,
-          layout,
-          minzoom: layer.minzoom,
-          maxzoom: layer.maxzoom,
-        } as maplibregl.AddLayerObject);
+      } else {
+        map.addSource(sourceId, {
+          type: 'raster',
+          tiles: layer.tiles,
+          tileSize: layer.tileSize ?? 256,
+        });
       }
+
+      map.addLayer({
+        id: layerId,
+        type: layer.layerType,
+        source: sourceId,
+        paint,
+        layout,
+        minzoom: layer.minzoom,
+        maxzoom: layer.maxzoom,
+      } as maplibregl.AddLayerObject);
 
       addedLayerIds.push(layerId);
       addedSourceIds.push(sourceId);

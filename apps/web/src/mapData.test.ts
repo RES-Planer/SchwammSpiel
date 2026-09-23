@@ -35,6 +35,14 @@ describe('map data helpers', () => {
       ],
       layers: [
         {
+          id: 'basemap',
+          name: { de: 'Basiskarte' },
+          type: 'raster',
+          layerType: 'raster',
+          tiles: ['https://example.test/{z}/{x}/{y}.png'],
+          visibleByDefault: false,
+        },
+        {
           id: 'visible',
           name: { de: 'Sichtbar' },
           type: 'geojson',
@@ -52,7 +60,7 @@ describe('map data helpers', () => {
       ],
     };
 
-    expect(createInitialVisibility(manifest.layers)).toEqual({ visible: true, hidden: false });
+    expect(createInitialVisibility(manifest.layers)).toEqual({ basemap: false, visible: true, hidden: false });
   });
 
   test('collects deduplicated localized attributions', () => {
