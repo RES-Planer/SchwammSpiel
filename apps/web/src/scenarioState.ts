@@ -178,3 +178,14 @@ export async function fromShareFragment(fragment: string): Promise<ScenarioState
   }
   return decodeScenarioState(encoded);
 }
+
+export async function loadSharedScenarioForCatchment(
+  fragment: string,
+  catchmentId: string,
+): Promise<ScenarioState | null> {
+  const state = await fromShareFragment(fragment);
+  if (!state || state.catchmentId !== catchmentId) {
+    return null;
+  }
+  return state;
+}

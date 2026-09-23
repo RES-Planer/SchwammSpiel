@@ -67,6 +67,9 @@
   "measure.param.pipeDnMm": "Potrubí DN (mm)",
   "measure.param.pipeLengthM": "Délka potrubí (m)",
   "measure.param.targetQOutM3s": "Cílový odtok (m³/s)",
+  "measure.param.inflowDtH": "Časový krok hydrogramu (h)",
+  "measure.param.inflowSeriesM3s": "Přítokový hydrogram (m³/s)",
+  "measure.param.inflowSeriesM3s.placeholder": "0, 0.2, 0.5, 0.3, 0",
   "measure.param.suggestSize": "Navrhnout velikost",
   "measure.param.count": "Počet",
   "measure.param.volumeEachM3": "Objem jedné tůně (m³)",
@@ -89,5 +92,6 @@
   "measure.warning.stones-unstable": "Kameny mohou být nestabilní.",
   "measure.warning.low-infiltration-soil": "Půda má nízkou infiltraci.",
   "measure.warning.missing-infiltration-data": "Chybí infiltrační data.",
-  "measure.warning.invalid-parameters": "Parametry nejsou platné."
+  "measure.warning.invalid-parameters": "Parametry nejsou platné.",
+  "measure.storageSuggestion.todoSpec": "TODO(SPEC): Pro návrh velikosti zadejte přítokový hydrogram dle SPEC."
 }

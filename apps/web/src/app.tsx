@@ -27,7 +27,7 @@ import {
   commitHistoryState,
   createHistoryState,
   createInitialScenarioState,
-  fromShareFragment,
+  loadSharedScenarioForCatchment,
   redoHistoryState,
   toShareFragment,
   undoHistoryState,
@@ -129,12 +129,12 @@ export function App() {
   useEffect(() => {
     let cancelled = false;
     const initialState = createInitialScenarioState(catchmentId);
-    void fromShareFragment(window.location.hash)
+    void loadSharedScenarioForCatchment(window.location.hash, catchmentId)
       .then((sharedState) => {
         if (cancelled) {
           return;
         }
-        if (!sharedState || sharedState.catchmentId !== catchmentId) {
+        if (!sharedState) {
           setScenarioHistory(createHistoryState(initialState));
           return;
         }
@@ -565,13 +565,16 @@ export function App() {
     const depthM = readNumber(selectedMeasure.params.depthM, 1.2);
     const pipeDnMm = readNumber(selectedMeasure.params.pipeDnMm, 300);
     const pipeLengthM = readNumber(selectedMeasure.params.pipeLengthM, 12);
-    const areaHa = selectedSubcatchment?.areaHa ?? 50;
-    const qPeak = Math.max(0.05, areaHa * 0.0045);
-    const inflow = [0, qPeak * 0.25, qPeak * 0.65, qPeak, qPeak * 0.75, qPeak * 0.4, qPeak * 0.1, 0];
-    const targetQOutM3s = readNumber(selectedMeasure.params.targetQOutM3s, Math.max(0.03, qPeak * 0.35));
+    const inflow = parseHydrographSeries(selectedMeasure.params.inflowSeriesM3s);
+    if (inflow.length < 2) {
+      setShareMessage(t(locale, 'measure.storageSuggestion.todoSpec'));
+      return;
+    }
+    const inflowDtH = readNumber(selectedMeasure.params.inflowDtH, 0.25);
+    const targetQOutM3s = readNumber(selectedMeasure.params.targetQOutM3s, 0.18);
     const suggested = sizeStorageForTarget(
       inflow,
-      0.25,
+      inflowDtH,
       { type: 'pipe', dnMm: pipeDnMm, lengthM: pipeLengthM },
       depthM,
       targetQOutM3s,
@@ -631,9 +634,14 @@ export function App() {
     url.hash = fragment;
     window.history.replaceState(null, '', url.toString());
     if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(url.toString());
-      setShareMessage(t(locale, 'scenario.share.copied'));
-      return;
+      try {
+        await navigator.clipboard.writeText(url.toString());
+        setShareMessage(t(locale, 'scenario.share.copied'));
+        return;
+      } catch {
+        setShareMessage(t(locale, 'scenario.share.updated'));
+        return;
+      }
     }
     setShareMessage(t(locale, 'scenario.share.updated'));
   };
@@ -1110,6 +1118,9 @@ function summarizeMeasure(measure: MeasureState): MeasureSummary {
       volumeM3 = count * volumeEachM3;
       excavationM3 = volumeM3;
     } else if (measure.kind === 'swale') {
+      if (lengthM <= 0) {
+        return { areaHa, lengthM, volumeM3: 0, excavationM3: 0, warnings };
+      }
       const geometry = swaleGeometry({
         lengthM: Math.max(1, lengthM),
         bottomWidthM: readNumber(measure.params.bottomWidthM, 0.5),
@@ -1168,6 +1179,16 @@ function parseElevationProfile(value: string | number | boolean | undefined): nu
     .filter((entry) => Number.isFinite(entry));
 }
 
+function parseHydrographSeries(value: string | number | boolean | undefined): number[] {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [];
+  }
+  return value
+    .split(',')
+    .map((entry) => Number(entry.trim()))
+    .filter((entry) => Number.isFinite(entry) && entry >= 0);
+}
+
 function defaultParams(kind: MeasureKind): Record<string, number | string> {
   switch (kind) {
     case 'landUseChange':
@@ -1183,6 +1204,8 @@ function defaultParams(kind: MeasureKind): Record<string, number | string> {
         depthM: 1.2,
         pipeDnMm: 300,
         pipeLengthM: 12,
+        inflowDtH: 0.25,
+        inflowSeriesM3s: '',
         targetQOutM3s: 0.18,
       };
     case 'forestMulches':
@@ -1333,6 +1356,24 @@ function renderMeasureEditor(
               step={0.01}
               value={String(measure.params.targetQOutM3s ?? 0.18)}
               onInput={(event) => setParam('targetQOutM3s', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.inflowDtH')}
+            <input
+              type="number"
+              min={0.01}
+              step={0.01}
+              value={String(measure.params.inflowDtH ?? 0.25)}
+              onInput={(event) => setParam('inflowDtH', (event.target as HTMLInputElement).value)}
+            />
+          </label>
+          <label>
+            {t(locale, 'measure.param.inflowSeriesM3s')}
+            <input
+              value={String(measure.params.inflowSeriesM3s ?? '')}
+              onInput={(event) => setParam('inflowSeriesM3s', (event.target as HTMLInputElement).value)}
+              placeholder={t(locale, 'measure.param.inflowSeriesM3s.placeholder')}
             />
           </label>
           <button type="button" onClick={applyStorageSuggestion}>

@@ -67,6 +67,9 @@
   "measure.param.pipeDnMm": "Pipe DN (mm)",
   "measure.param.pipeLengthM": "Pipe length (m)",
   "measure.param.targetQOutM3s": "Target outflow (m³/s)",
+  "measure.param.inflowDtH": "Hydrograph step (h)",
+  "measure.param.inflowSeriesM3s": "Inflow hydrograph (m³/s)",
+  "measure.param.inflowSeriesM3s.placeholder": "0, 0.2, 0.5, 0.3, 0",
   "measure.param.suggestSize": "Suggest size",
   "measure.param.count": "Count",
   "measure.param.volumeEachM3": "Volume per basin (m³)",
@@ -89,5 +92,6 @@
   "measure.warning.stones-unstable": "Stones may be unstable.",
   "measure.warning.low-infiltration-soil": "Soil infiltration is low.",
   "measure.warning.missing-infiltration-data": "Missing infiltration data.",
-  "measure.warning.invalid-parameters": "Parameters are invalid."
+  "measure.warning.invalid-parameters": "Parameters are invalid.",
+  "measure.storageSuggestion.todoSpec": "TODO(SPEC): Enter a SPEC-compliant inflow hydrograph to suggest storage size."
 }

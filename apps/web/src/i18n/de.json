@@ -67,12 +67,15 @@
   "measure.param.pipeDnMm": "Rohr DN (mm)",
   "measure.param.pipeLengthM": "Rohrlänge (m)",
   "measure.param.targetQOutM3s": "Ziel-Abfluss (m³/s)",
+  "measure.param.inflowDtH": "Zeitschritt Ganglinie (h)",
+  "measure.param.inflowSeriesM3s": "Zulauf-Ganglinie (m³/s)",
+  "measure.param.inflowSeriesM3s.placeholder": "0, 0.2, 0.5, 0.3, 0",
   "measure.param.suggestSize": "Größe vorschlagen",
   "measure.param.count": "Anzahl",
   "measure.param.volumeEachM3": "Volumen je Mulde (m³)",
   "measure.param.location": "Lage",
   "measure.param.location.top": "oben",
-  "measure.param.location.mid": "mitte",
+  "measure.param.location.mid": "Mitte",
   "measure.param.location.low": "unten",
   "measure.param.bottomWidthM": "Sohlbreite (m)",
   "measure.param.sideSlopeM": "Böschung m",
@@ -89,5 +92,6 @@
   "measure.warning.stones-unstable": "Steine potenziell instabil.",
   "measure.warning.low-infiltration-soil": "Boden hat geringe Infiltration.",
   "measure.warning.missing-infiltration-data": "Infiltrationsdaten fehlen.",
-  "measure.warning.invalid-parameters": "Parameter sind ungültig."
+  "measure.warning.invalid-parameters": "Parameter sind ungültig.",
+  "measure.storageSuggestion.todoSpec": "TODO(SPEC): Für den Größen-Vorschlag bitte eine SPEC-konforme Zulauf-Ganglinie eintragen."
 }

@@ -7,6 +7,7 @@ import {
   decodeScenarioState,
   encodeScenarioState,
   fromShareFragment,
+  loadSharedScenarioForCatchment,
   redoHistoryState,
   toShareFragment,
   undoHistoryState,
@@ -69,6 +70,16 @@ describe('scenario state helpers', () => {
     const decoded = await fromShareFragment(`#${fragment}`);
 
     expect(decoded).toEqual(state);
+  });
+
+  test('ignores shared fragments from another catchment', async () => {
+    const state = createInitialScenarioState('goldbach');
+    const fragment = await toShareFragment(state);
+    const forDemo = await loadSharedScenarioForCatchment(`#${fragment}`, 'demo');
+    const forGoldbach = await loadSharedScenarioForCatchment(`#${fragment}`, 'goldbach');
+
+    expect(forDemo).toBeNull();
+    expect(forGoldbach).toEqual(state);
   });
 
   test('uses gz payload when compression streams are available', async () => {
