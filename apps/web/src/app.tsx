@@ -1061,6 +1061,7 @@ export function App() {
         params.set('rainEventId', selectedRainEventId);
       }
       url.hash = `/steckbrief/?${params.toString()}`;
+      url.searchParams.set('lang', locale);
       window.location.assign(url.toString());
     } catch {
       setShareMessageKey('scenario.share.invalid');

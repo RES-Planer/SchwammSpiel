@@ -56,6 +56,9 @@ export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
   useEffect(() => {
     let cancelled = false;
     async function loadCatchment(): Promise<void> {
+      if (!scenarioPayload) {
+        return;
+      }
       try {
         const response = await fetch(buildDataUrl(import.meta.env.BASE_URL, catchmentId, 'catchment.json'));
         if (!response.ok) {
@@ -67,7 +70,7 @@ export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
         }
       } catch {
         if (!cancelled) {
-          setLoadErrorKey('map.loadError');
+          setLoadErrorKey((current) => current || 'map.loadError');
         }
       }
     }
@@ -76,7 +79,7 @@ export function SteckbriefPage({ scenarioPayload, rainEventId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [catchmentId]);
+  }, [catchmentId, scenarioPayload]);
 
   return (
     <main className="steckbrief-shell">
