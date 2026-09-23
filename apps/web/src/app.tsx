@@ -278,21 +278,22 @@ export function App() {
     const worker = new Worker(new URL('./localFlowRouting.worker.ts', import.meta.url), { type: 'module' });
     localRoutingWorkerRef.current = worker;
     worker.onmessage = (event: MessageEvent<LocalFlowRoutingWorkerResponse>) => {
-      if (!event.data.ok) {
+      const response = event.data;
+      if (!response.ok) {
         return;
       }
-      updateMeasure(event.data.measureId, (measure) => {
-        const nextWarningCodes = event.data.analysis.warningCodes.join(',');
+      updateMeasure(response.measureId, (measure) => {
+        const nextWarningCodes = response.analysis.warningCodes.join(',');
         const nextParams = {
           ...measure.params,
-          localAreaShare: Number(event.data.analysis.capturedAreaShare.toFixed(4)),
+          localAreaShare: Number(response.analysis.capturedAreaShare.toFixed(4)),
           localFlowPathChainageM:
-            event.data.analysis.dominantFlowPathChainageM === null
+            response.analysis.dominantFlowPathChainageM === null
               ? ''
-              : Number(event.data.analysis.dominantFlowPathChainageM.toFixed(1)),
-          localCutM3: Number(event.data.analysis.cutM3.toFixed(1)),
-          localFillM3: Number(event.data.analysis.fillM3.toFixed(1)),
-          localMassBalanceM3: Number(event.data.analysis.massBalanceM3.toFixed(1)),
+              : Number(response.analysis.dominantFlowPathChainageM.toFixed(1)),
+          localCutM3: Number(response.analysis.cutM3.toFixed(1)),
+          localFillM3: Number(response.analysis.fillM3.toFixed(1)),
+          localMassBalanceM3: Number(response.analysis.massBalanceM3.toFixed(1)),
           localWarningCodes: nextWarningCodes,
         };
         const changed =

@@ -250,7 +250,10 @@ function swaleCutDepthM(
   return Math.max(0, slopeHeightM);
 }
 
-function analyzeLineEdit(window: TerrainWindow, measure: LocalTerrainMeasure): RasterEditResult {
+function analyzeLineEdit(
+  window: TerrainWindow,
+  measure: Exclude<LocalTerrainMeasure, { kind: 'storageWithPipe' }>,
+): RasterEditResult {
   const editedElevationsM = [...window.elevationsM];
   const editedCellIndexes: number[] = [];
   const cellAreaM2 = window.cellSizeM * window.cellSizeM;
@@ -263,7 +266,8 @@ function analyzeLineEdit(window: TerrainWindow, measure: LocalTerrainMeasure): R
   const sideSlopeM = measure.sideSlopeM;
   const cutSectionAreaM2 =
     measure.kind === 'swale' ? bottomWidthM * depthM + sideSlopeM * depthM * depthM : 0;
-  const fillWidthM = measure.kind === 'swale' ? (2 * cutSectionAreaM2) / Math.max(depthM, EPSILON_M) : sideSlopeM * depthM;
+  const fillWidthM =
+    measure.kind === 'swale' ? (2 * cutSectionAreaM2) / Math.max(depthM, EPSILON_M) : sideSlopeM * depthM;
   const maxInfluenceM =
     measure.kind === 'swale'
       ? Math.max(bottomWidthM / 2 + sideSlopeM * depthM, fillWidthM)
