@@ -230,6 +230,51 @@ def _weighted_mean_ignore_nan(values: Any, weights: Any, np: Any) -> float | Non
     return float(np.average(vals[mask], weights=w[mask]))
 
 
+def _build_reference_cn(cn_low_avg: float | None, default_cn: float) -> dict[str, Any]:
+    if cn_low_avg is None or not math.isfinite(cn_low_avg):
+        return {
+            'cn': float(default_cn),
+            'cn_status': 'fallback-default',
+            'cn_warning': 'CN fallback used (missing landuse×soil lookup)',
+        }
+    return {'cn': round(float(cn_low_avg), 2), 'cn_status': 'gis-derived'}
+
+
+def _estimate_tc_h(flow_path: list[dict[str, Any]]) -> float:
+    return round(max(0.1, sum(float(seg['lengthM']) for seg in flow_path) / 1500.0), 3)
+
+
+def _default_rain_events() -> list[dict[str, Any]]:
+    return [
+        {
+            'id': 'hq20-18h',
+            'name': 'HQ20 18h',
+            'pMm': 69.9,
+            'durationH': 18,
+            'rainShape': 'mittenbetont',
+        },
+        {
+            'id': 'hq20-4h',
+            'name': 'HQ20 4h',
+            'pMm': 48.8,
+            'durationH': 4,
+            'rainShape': 'mittenbetont',
+        },
+    ]
+
+
+def _build_catchment_payload(
+    catchment_id: str, catchment_name: str, mq_ls_km2: float, subcatchments: list[dict[str, Any]]
+) -> dict[str, Any]:
+    return {
+        'id': catchment_id,
+        'name': catchment_name,
+        'mqLsKm2': float(mq_ls_km2),
+        'rainEvents': _default_rain_events(),
+        'subcatchments': subcatchments,
+    }
+
+
 def _line_length_m(coords: list[tuple[float, float]]) -> float:
     total = 0.0
     for a, b in zip(coords[:-1], coords[1:]):
@@ -519,6 +564,8 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                     flow_path = [split for section in sections for split in _split_sheet_max_50m(section) if section['lengthM'] > 0]
 
                 sid = str(sc['id'])
+                reference_cn = _build_reference_cn(cn_low_avg, float(args.default_cn))
+                reference_cn_value = float(reference_cn['cn'])
                 subcatchment_record = {
                     'id': sid,
                     'areaHa': round(float(sc['areaHa']), 3),
@@ -527,14 +574,8 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                     'tcFactor': float(args.default_tc_factor),
                     'lagToOutletH': 0,
                     'reference': {
-                        'cn': round(cn_low_avg, 2) if cn_low_avg is not None and math.isfinite(cn_low_avg) else float(args.default_cn),
-                        'tcH': round(max(0.1, sum(seg['lengthM'] for seg in flow_path) / 1500.0), 3),
-                        'cn_status': 'gis-derived',
-                        **(
-                            {'cn_warning': 'CN fallback used (missing landuse×soil lookup)'}
-                            if cn_low_avg is None or not math.isfinite(cn_low_avg)
-                            else {}
-                        ),
+                        **reference_cn,
+                        'tcH': _estimate_tc_h(flow_path),
                     },
                     'measureAreas': [
                         {
@@ -544,9 +585,7 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                                 {
                                     'id': f'{sid}-patch',
                                     'areaHa': round(float(sc['areaHa']), 3),
-                                    'cn': round(cn_low_avg, 2)
-                                    if cn_low_avg is not None and math.isfinite(cn_low_avg)
-                                    else float(args.default_cn),
+                                    'cn': reference_cn_value,
                                 }
                             ],
                             'flowPath': [
@@ -667,28 +706,12 @@ def run_pipeline(args: argparse.Namespace) -> Path:
                 warnings.append(f'WARN(size): {path.name} is {size_mb:.2f} MB (>2 MB target)')
 
         # catchment.json
-        catchment = {
-            'id': args.catchment,
-            'name': args.catchment_name,
-            'mqLsKm2': float(args.default_mq_ls_km2),
-            'rainEvents': [
-                {
-                    'id': 'hq20-18h',
-                    'name': 'HQ20 18h',
-                    'pMm': 69.9,
-                    'durationH': 18,
-                    'rainShape': 'mittenbetont',
-                },
-                {
-                    'id': 'hq20-4h',
-                    'name': 'HQ20 4h',
-                    'pMm': 48.8,
-                    'durationH': 4,
-                    'rainShape': 'mittenbetont',
-                },
-            ],
-            'subcatchments': subcatchment_records,
-        }
+        catchment = _build_catchment_payload(
+            catchment_id=args.catchment,
+            catchment_name=args.catchment_name,
+            mq_ls_km2=float(args.default_mq_ls_km2),
+            subcatchments=subcatchment_records,
+        )
 
         catchment_path = output_dir / 'catchment.json'
         catchment_path.write_text(json.dumps(catchment, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')

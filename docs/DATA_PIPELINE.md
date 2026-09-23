@@ -55,9 +55,9 @@ Zusätzlich wird `data/hydrology_tables.json` für CN-Werte genutzt.
 ## Aufruf
 
 ```bash
-python3 /home/runner/work/SchwammSpiel/SchwammSpiel/tools/prepare_catchment.py \
+python3 tools/prepare_catchment.py \
   --catchment goldbach \
-  --root /home/runner/work/SchwammSpiel/SchwammSpiel
+  --root .
 ```
 
 Hilfsparameter (Auszug):
