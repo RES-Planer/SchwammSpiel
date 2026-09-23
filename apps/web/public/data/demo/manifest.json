@@ -30,7 +30,11 @@
       ],
       "tileSize": 256,
       "visibleByDefault": true,
-      "attribution": "TopPlusOpen (BKG), CC BY 4.0"
+      "attribution": {
+        "de": "TopPlusOpen (BKG), CC BY 4.0",
+        "cs": "TopPlusOpen (BKG), CC BY 4.0",
+        "en": "TopPlusOpen (BKG), CC BY 4.0"
+      }
     },
     {
       "id": "basemap-openfreemap",
