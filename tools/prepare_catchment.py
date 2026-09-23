@@ -230,6 +230,47 @@ def _weighted_mean_ignore_nan(values: Any, weights: Any, np: Any) -> float | Non
     return float(np.average(vals[mask], weights=w[mask]))
 
 
+def _get_table_number(
+    tables: dict[str, Any], path: list[str], warnings: list[str], fallback: float, label: str
+) -> float:
+    current: Any = tables
+    for key in path:
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        else:
+            warnings.append(
+                f'WARN(table): missing {".".join(path)}; using fallback {fallback} for {label}.'
+            )
+            return fallback
+    if isinstance(current, (int, float)):
+        return float(current)
+    warnings.append(
+        f'WARN(table): non-numeric {".".join(path)}={current!r}; using fallback {fallback} for {label}.'
+    )
+    return fallback
+
+
+def _get_table_roughness_mean(
+    tables: dict[str, Any], path: list[str], warnings: list[str], fallback: float, label: str
+) -> float:
+    current: Any = tables
+    for key in path:
+        if isinstance(current, dict) and key in current:
+            current = current[key]
+        else:
+            warnings.append(
+                f'WARN(table): missing {".".join(path)}; using fallback {fallback} for {label}.'
+            )
+            return fallback
+    value = _mean_for_entry(current)
+    if value is None:
+        warnings.append(
+            f'WARN(table): non-numeric {".".join(path)}={current!r}; using fallback {fallback} for {label}.'
+        )
+        return fallback
+    return float(value)
+
+
 def _build_reference_cn(cn_low_avg: float | None, default_cn: float) -> dict[str, Any]:
     if cn_low_avg is None or not math.isfinite(cn_low_avg):
         return {
@@ -338,8 +379,10 @@ def run_pipeline(args: argparse.Namespace) -> Path:
             print(f'[prepare] Reprojecting parcels to {target_crs}')
             parcels = parcels.to_crs(target_crs)
         if buildings is not None and buildings.crs != target_crs:
+            _ensure_projected(buildings)
             buildings = buildings.to_crs(target_crs)
         if measures is not None and measures.crs != target_crs:
+            _ensure_projected(measures)
             measures = measures.to_crs(target_crs)
 
         union_geom = subcatchments.unary_union
@@ -494,12 +537,41 @@ def run_pipeline(args: argparse.Namespace) -> Path:
             if streams_native.crs != target_crs:
                 streams_native = streams_native.to_crs(target_crs)
 
-            k_sheet = _mean_for_entry(next(iter(tables['roughness_strickler_sheet_flow']['values'].values()))) or 12.0
-            k_conc = _mean_for_entry(next(iter(tables['roughness_strickler_concentrated']['values'].values()))) or 25.0
-            r_defaults = tables.get('hydraulic_radius_defaults_m', {})
-            r_sheet = float(r_defaults.get('sheet_flow', 0.002))
-            r_rill = float(r_defaults.get('rills', 0.04))
-            r_hollow = float(r_defaults.get('swale_hollow', 0.1))
+            k_sheet = _get_table_roughness_mean(
+                tables,
+                ['roughness_strickler_sheet_flow', 'values', 'Acker Bedeckung <5 %'],
+                warnings,
+                fallback=17.0,
+                label='sheet roughness',
+            )
+            k_conc = _get_table_roughness_mean(
+                tables,
+                ['roughness_strickler_concentrated', 'values', 'Erosionsrinne Acker (kastenfoermig)'],
+                warnings,
+                fallback=25.0,
+                label='concentrated roughness',
+            )
+            r_sheet = _get_table_number(
+                tables,
+                ['hydraulic_radius_defaults_m', 'sheet_flow'],
+                warnings,
+                fallback=0.002,
+                label='sheet hydraulic radius',
+            )
+            r_rill = _get_table_number(
+                tables,
+                ['hydraulic_radius_defaults_m', 'rills'],
+                warnings,
+                fallback=0.04,
+                label='rill hydraulic radius',
+            )
+            r_hollow = _get_table_number(
+                tables,
+                ['hydraulic_radius_defaults_m', 'swale_hollow'],
+                warnings,
+                fallback=0.1,
+                label='hollow hydraulic radius',
+            )
 
             for _, sc in subcatchments.iterrows():
                 geom = sc.geometry
@@ -671,7 +743,16 @@ def run_pipeline(args: argparse.Namespace) -> Path:
         cn_zones_web = cn_zones_web.rename(columns={'cnLowSeasonality': 'cn'})
 
         streams_web = gpd.read_file(streams_vector).to_crs(web_crs)
-        streams_web = streams_web.rename(columns={c: 'accumulation' for c in streams_web.columns if c.lower() in ('strm_val', 'value')})
+        acc_source = None
+        for candidate in ('strm_val', 'value'):
+            for column in streams_web.columns:
+                if column.lower() == candidate:
+                    acc_source = column
+                    break
+            if acc_source is not None:
+                break
+        if acc_source is not None and acc_source != 'accumulation':
+            streams_web = streams_web.rename(columns={acc_source: 'accumulation'})
         if 'accumulation' not in streams_web.columns:
             streams_web['accumulation'] = 1
 

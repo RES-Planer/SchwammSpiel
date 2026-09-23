@@ -41,11 +41,27 @@ class PrepareCatchmentExportTests(unittest.TestCase):
             ],
         )
 
-        event_ids = [event['id'] for event in payload['rainEvents']]
+        self.assertEqual(
+            payload['rainEvents'],
+            [
+                {
+                    'id': 'hq20-18h',
+                    'name': 'HQ20 18h',
+                    'pMm': 69.9,
+                    'durationH': 18,
+                    'rainShape': 'mittenbetont',
+                },
+                {
+                    'id': 'hq20-4h',
+                    'name': 'HQ20 4h',
+                    'pMm': 48.8,
+                    'durationH': 4,
+                    'rainShape': 'mittenbetont',
+                },
+            ],
+        )
         self.assertEqual(payload['id'], 'goldbach')
         self.assertEqual(payload['mqLsKm2'], 15.53)
-        self.assertIn('hq20-18h', event_ids)
-        self.assertIn('hq20-4h', event_ids)
 
 
 if __name__ == '__main__':
