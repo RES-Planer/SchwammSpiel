@@ -40,6 +40,7 @@
   "scenario.load": "Load",
   "scenario.share": "Share",
   "scenario.share.copied": "Share link updated and copied to clipboard.",
+  "scenario.share.updated": "Share link updated.",
   "scenario.share.invalid": "URL fragment could not be parsed.",
   "scenario.file.invalid": "File could not be read as scenario.",
   "scenario.file.catchmentMismatch": "File does not match the selected catchment.",

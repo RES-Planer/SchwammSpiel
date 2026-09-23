@@ -40,6 +40,7 @@
   "scenario.load": "Laden",
   "scenario.share": "Teilen",
   "scenario.share.copied": "Teil-Link aktualisiert und in die Zwischenablage kopiert.",
+  "scenario.share.updated": "Teil-Link aktualisiert.",
   "scenario.share.invalid": "URL-Fragment konnte nicht geladen werden.",
   "scenario.file.invalid": "Datei konnte nicht als Szenario gelesen werden.",
   "scenario.file.catchmentMismatch": "Datei passt nicht zum ausgewählten Gebiet.",

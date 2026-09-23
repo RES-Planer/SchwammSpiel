@@ -40,6 +40,7 @@
   "scenario.load": "Načíst",
   "scenario.share": "Sdílet",
   "scenario.share.copied": "Odkaz byl aktualizován a zkopírován do schránky.",
+  "scenario.share.updated": "Odkaz byl aktualizován.",
   "scenario.share.invalid": "Fragment URL se nepodařilo načíst.",
   "scenario.file.invalid": "Soubor nelze načíst jako scénář.",
   "scenario.file.catchmentMismatch": "Soubor neodpovídá zvolenému povodí.",

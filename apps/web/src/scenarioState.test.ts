@@ -71,6 +71,43 @@ describe('scenario state helpers', () => {
     expect(decoded).toEqual(state);
   });
 
+  test('uses gz payload when compression streams are available', async () => {
+    if (
+      typeof globalThis.CompressionStream === 'undefined' ||
+      typeof globalThis.DecompressionStream === 'undefined'
+    ) {
+      return;
+    }
+
+    const largeState = {
+      version: 1 as const,
+      catchmentId: 'demo',
+      measures: Array.from({ length: 24 }, (_, index) => ({
+        id: `m-${index}`,
+        kind: 'landUseChange' as const,
+        enabled: true,
+        params: {
+          landUse: 'arable',
+          notes: 'repeated-text-for-compression-repeated-text-for-compression',
+        },
+        geometry: {
+          type: 'Polygon' as const,
+          coordinates: [
+            [11.93, 49.945] as [number, number],
+            [11.931, 49.945] as [number, number],
+            [11.931, 49.946] as [number, number],
+            [11.93, 49.946] as [number, number],
+            [11.93, 49.945] as [number, number],
+          ],
+        },
+      })),
+    };
+
+    const encoded = await encodeScenarioState(largeState);
+    expect(encoded.startsWith('gz.')).toBe(true);
+    await expect(decodeScenarioState(encoded)).resolves.toEqual(largeState);
+  });
+
   test('fails with compressed payload when DecompressionStream is unavailable', async () => {
     const originalDecompressionStream = globalThis.DecompressionStream;
     try {

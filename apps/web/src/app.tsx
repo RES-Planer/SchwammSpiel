@@ -127,28 +127,31 @@ export function App() {
   );
 
   useEffect(() => {
-    setScenarioHistory(createHistoryState(createInitialScenarioState(catchmentId)));
-  }, [catchmentId]);
-
-  useEffect(() => {
     let cancelled = false;
+    const initialState = createInitialScenarioState(catchmentId);
     void fromShareFragment(window.location.hash)
       .then((sharedState) => {
-        if (cancelled || !sharedState || sharedState.catchmentId !== catchmentId) {
+        if (cancelled) {
+          return;
+        }
+        if (!sharedState || sharedState.catchmentId !== catchmentId) {
+          setScenarioHistory(createHistoryState(initialState));
           return;
         }
         setScenarioHistory(createHistoryState(sharedState));
       })
       .catch(() => {
-        if (!cancelled) {
-          setShareMessage(t(locale, 'scenario.share.invalid'));
+        if (cancelled) {
+          return;
         }
+        setScenarioHistory(createHistoryState(initialState));
+        setShareMessage(t(locale, 'scenario.share.invalid'));
       });
 
     return () => {
       cancelled = true;
     };
-  }, [catchmentId, locale]);
+  }, [catchmentId]);
 
   useEffect(() => {
     const mapElement = mapElementRef.current;
@@ -629,8 +632,10 @@ export function App() {
     window.history.replaceState(null, '', url.toString());
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(url.toString());
+      setShareMessage(t(locale, 'scenario.share.copied'));
+      return;
     }
-    setShareMessage(t(locale, 'scenario.share.copied'));
+    setShareMessage(t(locale, 'scenario.share.updated'));
   };
 
   const draftLengthM = geodesicLengthM(draftCoordinates);
@@ -729,9 +734,11 @@ export function App() {
               className="sr-only"
               type="file"
               accept="application/json"
-              onChange={(event) =>
-                loadScenarioFromFile((event.target as HTMLInputElement).files?.[0] ?? null)
-              }
+              onChange={(event) => {
+                const input = event.target as HTMLInputElement;
+                loadScenarioFromFile(input.files?.[0] ?? null);
+                input.value = '';
+              }}
             />
             {shareMessage ? <p className="hint-text">{shareMessage}</p> : null}
           </div>
