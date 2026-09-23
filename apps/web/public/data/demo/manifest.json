@@ -46,7 +46,11 @@
       ],
       "tileSize": 256,
       "visibleByDefault": false,
-      "attribution": "OpenFreeMap, OpenMapTiles, OpenStreetMap-Mitwirkende (ODbL)"
+      "attribution": {
+        "de": "OpenFreeMap, OpenMapTiles, OpenStreetMap-Mitwirkende (ODbL)",
+        "cs": "OpenFreeMap, OpenMapTiles, přispěvatelé OpenStreetMap (ODbL)",
+        "en": "OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL)"
+      }
     },
     {
       "id": "hillshade",
