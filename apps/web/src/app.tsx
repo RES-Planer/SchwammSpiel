@@ -483,15 +483,33 @@ export function App() {
     if (activeBaseStyleRef.current !== nextBaseStyleKey) {
       activeBaseStyleRef.current = nextBaseStyleKey;
 
+      const handleStyleError = () => {
+        map.off('style.load', handleStyleLoad);
+        if (!activeBaseStyleUrl) {
+          return;
+        }
+
+        activeBaseStyleRef.current = '__default__';
+        map.once('style.load', applyManifestLayers);
+        map.setStyle(mapStyle);
+      };
+
       const handleStyleLoad = () => {
+        if (activeBaseStyleUrl) {
+          map.off('error', handleStyleError);
+        }
         applyManifestLayers();
       };
 
       map.once('style.load', handleStyleLoad);
+      if (activeBaseStyleUrl) {
+        map.once('error', handleStyleError);
+      }
       map.setStyle(activeBaseStyleUrl ?? mapStyle);
 
       return () => {
         map.off('style.load', handleStyleLoad);
+        map.off('error', handleStyleError);
       };
     }
 
