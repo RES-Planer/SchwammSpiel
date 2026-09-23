@@ -5,5 +5,21 @@
   "app.language.cs": "Čeština",
   "app.language.en": "English",
   "app.mapLabel": "Map",
-  "map.attribution": "© OpenStreetMap contributors"
+  "app.scenarioNote": "Scenario comparison, not a forecast",
+  "map.attribution": "© OpenStreetMap contributors",
+  "map.layers": "Layers",
+  "map.legend": "Legend",
+  "map.legend.empty": "No layer is currently visible.",
+  "map.loading": "Loading catchment data …",
+  "map.loadError": "Catchment data could not be loaded.",
+  "map.details.title": "Subcatchment",
+  "map.details.empty": "Tap or click a subcatchment to inspect its details.",
+  "map.details.name": "Name",
+  "map.details.areaHa": "Area",
+  "map.details.cn": "CN",
+  "map.details.tcH": "tc",
+  "map.details.landuseShares": "Land use shares",
+  "map.landuse.forest": "Forest",
+  "map.landuse.grassland": "Grassland",
+  "map.landuse.arable": "Arable land"
 }

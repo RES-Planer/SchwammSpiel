@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" preserveAspectRatio="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="45%" stop-color="#dbeafe" />
+      <stop offset="100%" stop-color="#d1d5db" />
+    </linearGradient>
+    <linearGradient id="valley" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0%" stop-color="#94a3b8" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.35" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="url(#bg)" />
+  <path d="M180 130 C360 170, 420 300, 570 360 S850 520, 1010 760" fill="none" stroke="url(#valley)" stroke-width="230" stroke-linecap="round" />
+  <g fill="none" stroke="#475569" stroke-opacity="0.35">
+    <path d="M120 210 C300 140, 480 210, 720 160 S990 180, 1110 110" stroke-width="6" />
+    <path d="M80 330 C250 270, 470 320, 700 270 S980 290, 1120 220" stroke-width="5" />
+    <path d="M50 460 C260 400, 480 430, 700 380 S950 390, 1130 320" stroke-width="4" />
+    <path d="M40 610 C270 540, 520 560, 760 510 S1000 520, 1160 450" stroke-width="4" />
+    <path d="M60 760 C280 700, 520 710, 790 670 S1010 660, 1170 610" stroke-width="5" />
+  </g>
+</svg>

@@ -1,0 +1,115 @@
+import { describe, expect, test } from 'vitest';
+
+import {
+  buildDataUrl,
+  buildManifestUrl,
+  collectAttributions,
+  createInitialVisibility,
+  extractSubcatchmentDetails,
+  getLocalizedText,
+  resolveCatchmentId,
+  type CatchmentManifest,
+} from './mapData';
+
+describe('map data helpers', () => {
+  test('resolves the requested Gebiet from the query string', () => {
+    expect(resolveCatchmentId('?gebiet=goldbach')).toBe('goldbach');
+    expect(resolveCatchmentId('?gebiet=')).toBe('demo');
+    expect(resolveCatchmentId('')).toBe('demo');
+  });
+
+  test('builds manifest and asset URLs relative to the configured base path', () => {
+    expect(buildManifestUrl('/SchwammSpiel/', 'demo')).toBe('/SchwammSpiel/data/demo/manifest.json');
+    expect(buildDataUrl('/SchwammSpiel', 'demo', '/subcatchments.geojson')).toBe(
+      '/SchwammSpiel/data/demo/subcatchments.geojson',
+    );
+  });
+
+  test('derives default layer visibility from the manifest', () => {
+    const manifest: CatchmentManifest = {
+      id: 'demo',
+      name: { de: 'Demo' },
+      bounds: [
+        [11.9, 49.9],
+        [12, 50],
+      ],
+      layers: [
+        {
+          id: 'visible',
+          name: { de: 'Sichtbar' },
+          type: 'geojson',
+          layerType: 'fill',
+          path: 'visible.geojson',
+        },
+        {
+          id: 'hidden',
+          name: { de: 'Versteckt' },
+          type: 'geojson',
+          layerType: 'line',
+          path: 'hidden.geojson',
+          visibleByDefault: false,
+        },
+      ],
+    };
+
+    expect(createInitialVisibility(manifest.layers)).toEqual({ visible: true, hidden: false });
+  });
+
+  test('collects deduplicated localized attributions', () => {
+    const manifest: CatchmentManifest = {
+      id: 'demo',
+      name: { de: 'Demo' },
+      bounds: [
+        [11.9, 49.9],
+        [12, 50],
+      ],
+      layers: [
+        {
+          id: 'one',
+          name: { de: 'Eins' },
+          type: 'geojson',
+          layerType: 'fill',
+          path: 'one.geojson',
+          attribution: { de: 'Demo-Daten', en: 'Demo data' },
+        },
+        {
+          id: 'two',
+          name: { de: 'Zwei' },
+          type: 'geojson',
+          layerType: 'line',
+          path: 'two.geojson',
+          attribution: 'Demo-Daten',
+        },
+      ],
+    };
+
+    expect(collectAttributions(manifest, 'de')).toEqual(['Demo-Daten']);
+    expect(getLocalizedText(manifest.layers[0]?.attribution, 'en', '')).toBe('Demo data');
+  });
+
+  test('extracts subcatchment details from feature properties', () => {
+    expect(
+      extractSubcatchmentDetails({
+        id: 'tgb-1',
+        name: 'Teilgebiet 1',
+        areaHa: '82',
+        cn: 71,
+        tcH: 1.3,
+        shareForestPct: 35,
+        shareGrasslandPct: '40',
+        shareArablePct: 25,
+      }),
+    ).toEqual({
+      id: 'tgb-1',
+      name: 'Teilgebiet 1',
+      areaHa: 82,
+      cn: 71,
+      tcH: 1.3,
+      landuseShares: [
+        { labelKey: 'map.landuse.forest', valuePct: 35 },
+        { labelKey: 'map.landuse.grassland', valuePct: 40 },
+        { labelKey: 'map.landuse.arable', valuePct: 25 },
+      ],
+    });
+  });
+});
