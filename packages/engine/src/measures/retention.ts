@@ -126,7 +126,7 @@ function applyPhysicalRetention(
 
     qCurrentM3s = qCurrentM3s.map((q, i) => {
       const tH = i * dtH;
-      const reduction = interpolateAt(retainedRates, dtH, tH);
+      const reduction = interpolateAt(retainedRates, dtH, tH - element.delayH);
       return Math.max(0, q - reduction);
     });
 

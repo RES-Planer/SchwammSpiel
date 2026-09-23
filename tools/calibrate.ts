@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -8,36 +8,92 @@ type CalibrationSeed = {
   id: string;
   areaHa: number;
   cn: number;
+  cnStatus: 'thesis' | 'estimated-from-B7';
+  iaRatio: number;
+  prf: number;
   targetQMaxM3s: number;
-  todo?: string;
+  lagFixedToZero: boolean;
+};
+
+type CalibrationSeeds = {
+  rainEvent: {
+    id: string;
+    name: string;
+    pMm: number;
+    durationH: number;
+    rainShape: 'mittenbetont' | 'block';
+  };
+  mqLsKm2: number;
+  targetCatchmentQMaxM3s: number;
+  subcatchments: CalibrationSeed[];
+  expectedTcHAfterCalibration: Record<string, number>;
+};
+
+type RawCalibrationSeed = {
+  id: string;
+  area_ha: number;
+  cn: number;
+  cn_status: 'thesis' | 'estimated-from-B7';
+  ia_ratio: number;
+  prf: number;
+  target_q_max_m3s: number;
+  lag_fixed_to_zero?: boolean;
+};
+
+type RawCalibrationSeeds = {
+  rain_event: {
+    id: string;
+    name: string;
+    p_mm: number;
+    duration_h: number;
+    rain_shape: 'mittenbetont' | 'block';
+  };
+  mq_l_s_km2: number;
+  target_catchment_q_max_m3s: number;
+  subcatchments: RawCalibrationSeed[];
+  expected_tc_h_after_calibration: Record<string, number>;
 };
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const seedsPath = resolve(root, 'data/goldbach_seeds.json');
 const outputPath = resolve(root, 'data/goldbach/catchment.json');
+const EXPECTED_TC_TOLERANCE_FRACTION = 0.1;
 
-const mqLsKm2 = 15.53;
-const rainEvent = {
-  id: 'hq20-18h',
-  name: 'HQ20 18h',
-  pMm: 69.9,
-  durationH: 18,
-  rainShape: 'mittenbetont' as const,
-};
+function roundToStep(value: number, step: number): number {
+  return Number((Math.round(value / step) * step).toFixed(2));
+}
 
-const subcatchmentSeeds: CalibrationSeed[] = [
-  { id: 'tgb-1', areaHa: 85, cn: 78, targetQMaxM3s: 0.91 },
-  { id: 'tgb-2', areaHa: 80, cn: 80, targetQMaxM3s: 0.93 },
-  { id: 'tgb-3', areaHa: 88, cn: 73, targetQMaxM3s: 0.64, todo: 'TODO(DATA): placeholder CN 73.0' },
-  { id: 'tgb-4', areaHa: 84, cn: 74, targetQMaxM3s: 0.5, todo: 'TODO(DATA): placeholder CN 74.0' },
-  { id: 'tgb-5', areaHa: 83, cn: 76, targetQMaxM3s: 0.42 },
-  { id: 'tgb-6', areaHa: 90, cn: 82, targetQMaxM3s: 1.12 },
-  { id: 'tgb-7', areaHa: 77, cn: 75, targetQMaxM3s: 0.22, todo: 'TODO(DATA): placeholder CN 75.0' },
-];
+function readSeeds(): CalibrationSeeds {
+  const raw = JSON.parse(readFileSync(seedsPath, 'utf8')) as RawCalibrationSeeds;
+  return {
+    rainEvent: {
+      id: raw.rain_event.id,
+      name: raw.rain_event.name,
+      pMm: raw.rain_event.p_mm,
+      durationH: raw.rain_event.duration_h,
+      rainShape: raw.rain_event.rain_shape,
+    },
+    mqLsKm2: raw.mq_l_s_km2,
+    targetCatchmentQMaxM3s: raw.target_catchment_q_max_m3s,
+    subcatchments: raw.subcatchments.map((seed) => ({
+      id: seed.id,
+      areaHa: seed.area_ha,
+      cn: seed.cn,
+      cnStatus: seed.cn_status,
+      iaRatio: seed.ia_ratio,
+      prf: seed.prf,
+      targetQMaxM3s: seed.target_q_max_m3s,
+      lagFixedToZero: seed.lag_fixed_to_zero ?? false,
+    })),
+    expectedTcHAfterCalibration: raw.expected_tc_h_after_calibration,
+  };
+}
 
-const lagPattern = [0, 0.25, 0.5, 0.75, 1, 1.25, 1.5];
-const targetCatchmentQMaxM3s = 4.46;
-
-function calibrateTcH(seed: CalibrationSeed): number {
+function calibrateTcH(
+  seed: CalibrationSeed,
+  rainEvent: CalibrationSeeds['rainEvent'],
+  mqLsKm2: number,
+): number {
   const qAt = (tcH: number) =>
     computeHydrograph({
       areaHa: seed.areaHa,
@@ -45,19 +101,19 @@ function calibrateTcH(seed: CalibrationSeed): number {
       tcH,
       pMm: rainEvent.pMm,
       durationH: rainEvent.durationH,
-      iaRatio: 0.165,
-      prf: 484,
+      iaRatio: seed.iaRatio,
+      prf: seed.prf,
       rainShape: rainEvent.rainShape,
       mqLsKm2,
     }).qMaxM3s;
 
-  let lo = 0.05;
-  let hi = 0.1;
-  while (qAt(hi) > seed.targetQMaxM3s) {
-    hi *= 2;
-    if (hi > 48) {
-      throw new Error(`Could not bracket tcH for ${seed.id}`);
-    }
+  let lo = 0.2;
+  let hi = 30;
+  const qLo = qAt(lo);
+  const qHi = qAt(hi);
+
+  if (qLo < seed.targetQMaxM3s || qHi > seed.targetQMaxM3s) {
+    throw new Error(`Could not bracket tcH in [0.2, 30] for ${seed.id}`);
   }
 
   for (let i = 0; i < 80; i += 1) {
@@ -72,25 +128,48 @@ function calibrateTcH(seed: CalibrationSeed): number {
   return hi;
 }
 
-function buildCatchment(tcHs: number[], tcScale: number): Catchment {
+function buildCatchment(
+  seeds: CalibrationSeeds,
+  tcById: Map<string, number>,
+  lagH: number,
+  roundLag: boolean,
+): Catchment {
   return {
     id: 'goldbach',
     name: 'Goldbach bei Ebnath',
-    mqLsKm2,
-    rainEvents: [rainEvent],
-    subcatchments: subcatchmentSeeds.map((seed, index) => {
-      const tcH = (tcHs[index] ?? 1) * tcScale;
+    mqLsKm2: seeds.mqLsKm2,
+    rainEvents: [
+      {
+        id: seeds.rainEvent.id,
+        name: seeds.rainEvent.name,
+        pMm: seeds.rainEvent.pMm,
+        durationH: seeds.rainEvent.durationH,
+        rainShape: seeds.rainEvent.rainShape,
+      },
+    ],
+    subcatchments: seeds.subcatchments.map((seed) => {
+      const tcH = tcById.get(seed.id);
+      if (tcH === undefined) {
+        throw new Error(`Missing calibrated tcH for ${seed.id}`);
+      }
+
+      const lagToOutletH = seed.lagFixedToZero ? 0 : lagH;
+      const lagValue = roundLag ? roundToStep(lagToOutletH, 0.05) : lagToOutletH;
+
       return {
         id: seed.id,
         areaHa: seed.areaHa,
-        iaRatio: 0.165,
-        prf: 484,
+        iaRatio: seed.iaRatio,
+        prf: seed.prf,
         tcFactor: 1,
-        lagToOutletH: lagPattern[index]!,
+        lagToOutletH: lagValue,
         reference: {
           cn: seed.cn,
           tcH,
-          ...(seed.todo ? { todo: seed.todo } : {}),
+          cn_status: seed.cnStatus,
+          ...(seed.cnStatus === 'estimated-from-B7'
+            ? { cn_warning: 'CN estimated-from-B7' }
+            : {}),
         },
         measureAreas: [
           {
@@ -121,30 +200,24 @@ function buildCatchment(tcHs: number[], tcScale: number): Catchment {
   };
 }
 
-function calibrateTcScale(tcHs: number[]): number {
-  const qAtScale = (tcScale: number) => {
-    const result = evaluateScenario(buildCatchment(tcHs, tcScale), rainEvent.id, false);
+function calibrateLagH(seeds: CalibrationSeeds, tcById: Map<string, number>): number {
+  const qAt = (lagH: number) => {
+    const result = evaluateScenario(buildCatchment(seeds, tcById, lagH, false), seeds.rainEvent.id, false);
     return result.qMaxBeforeM3s;
   };
 
-  let lo = 0.1;
-  let hi = 1;
-  while (qAtScale(lo) < targetCatchmentQMaxM3s) {
-    lo /= 2;
-    if (lo < 1e-6) {
-      throw new Error('Could not bracket tc scale for Goldbach calibration');
-    }
-  }
-  while (qAtScale(hi) > targetCatchmentQMaxM3s) {
-    hi *= 2;
-    if (hi > 48) {
-      throw new Error('Could not bracket tc scale for Goldbach calibration');
-    }
+  let lo = 0;
+  let hi = 3;
+  const qLo = qAt(lo);
+  const qHi = qAt(hi);
+
+  if (qLo < seeds.targetCatchmentQMaxM3s || qHi > seeds.targetCatchmentQMaxM3s) {
+    throw new Error('Could not bracket common lag in [0, 3]');
   }
 
   for (let i = 0; i < 80; i += 1) {
     const mid = (lo + hi) / 2;
-    if (qAtScale(mid) > targetCatchmentQMaxM3s) {
+    if (qAt(mid) > seeds.targetCatchmentQMaxM3s) {
       lo = mid;
     } else {
       hi = mid;
@@ -154,24 +227,51 @@ function calibrateTcScale(tcHs: number[]): number {
   return hi;
 }
 
-const tcHs = subcatchmentSeeds.map(calibrateTcH);
-const tcScale = calibrateTcScale(tcHs);
-const catchment = buildCatchment(tcHs, tcScale);
+function assertExpectedTcRange(seeds: CalibrationSeeds, tcById: Map<string, number>): void {
+  for (const [id, expectedTcH] of Object.entries(seeds.expectedTcHAfterCalibration)) {
+    const calibrated = tcById.get(id);
+    if (calibrated === undefined) {
+      throw new Error(`Missing calibrated tcH for expected entry ${id}`);
+    }
+    const relativeDeviation = Math.abs(calibrated - expectedTcH) / expectedTcH;
+    if (relativeDeviation > EXPECTED_TC_TOLERANCE_FRACTION) {
+      throw new Error(
+        `tcH for ${id} out of expected ±10% range (got ${calibrated.toFixed(3)}, expected ${expectedTcH})`,
+      );
+    }
+  }
+}
+
+const seeds = readSeeds();
+const tcById = new Map(
+  seeds.subcatchments.map((seed) => [seed.id, calibrateTcH(seed, seeds.rainEvent, seeds.mqLsKm2)]),
+);
+
+for (const seed of seeds.subcatchments) {
+  if (seed.cnStatus === 'estimated-from-B7') {
+    console.warn(`WARN: ${seed.id} uses cn_status=estimated-from-B7`);
+  }
+}
+
+assertExpectedTcRange(seeds, tcById);
+const lagH = calibrateLagH(seeds, tcById);
+const catchment = buildCatchment(seeds, tcById, lagH, true);
 
 mkdirSync(dirname(outputPath), { recursive: true });
 writeFileSync(outputPath, `${JSON.stringify(catchment, null, 2)}\n`, 'utf8');
 
-const result = evaluateScenario(catchment, rainEvent.id, false);
+const result = evaluateScenario(catchment, seeds.rainEvent.id, false);
 console.log(
   JSON.stringify(
     {
       outputPath,
       catchmentQMaxM3s: result.qMaxBeforeM3s,
-      tcScale,
+      lagH,
       subcatchments: catchment.subcatchments.map((subcatchment) => ({
         id: subcatchment.id,
         tcH: 'tcH' in subcatchment.reference ? subcatchment.reference.tcH : null,
         lagToOutletH: subcatchment.lagToOutletH,
+        cn_status: 'cn_status' in subcatchment.reference ? subcatchment.reference.cn_status : null,
       })),
     },
     null,

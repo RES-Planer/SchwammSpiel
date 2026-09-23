@@ -117,13 +117,49 @@ describe('evaluateScenario', () => {
     ) as Catchment;
 
     const result = evaluateScenario(catchment, 'hq20-18h', false);
+    const totalAreaHa = catchment.subcatchments.reduce((sum, subcatchment) => sum + subcatchment.areaHa, 0);
+    const byId = new Map(catchment.subcatchments.map((subcatchment) => [subcatchment.id, subcatchment]));
 
     expect(result.after.qM3s).toEqual(result.before.qM3s);
-    expect(result.qMaxBeforeM3s).toBeCloseTo(4.46, 2);
+    expect(totalAreaHa).toBeGreaterThanOrEqual(585);
+    expect(totalAreaHa).toBeLessThanOrEqual(587);
     expect(
-      catchment.subcatchments
-        .filter((subcatchment) => ['tgb-3', 'tgb-4', 'tgb-7'].includes(subcatchment.id))
-        .every((subcatchment) => 'todo' in subcatchment.reference),
+      catchment.subcatchments.every((subcatchment) => {
+        return 'tcH' in subcatchment.reference && subcatchment.reference.tcH >= 1 && subcatchment.reference.tcH <= 5;
+      }),
     ).toBe(true);
+    expect(
+      catchment.subcatchments.every((subcatchment) => {
+        return subcatchment.lagToOutletH >= 0 && subcatchment.lagToOutletH <= 3;
+      }),
+    ).toBe(true);
+    expect(byId.get('tgb-1')?.lagToOutletH).toBe(0);
+    expect(byId.get('tgb-6')?.lagToOutletH).toBe(0);
+    expect(byId.get('tgb-2')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-3')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-4')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-5')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-7')?.lagToOutletH).toBe(0.25);
+    expect('tcH' in (byId.get('tgb-1')?.reference ?? {})).toBe(true);
+    expect('tcH' in (byId.get('tgb-2')?.reference ?? {})).toBe(true);
+    expect('tcH' in (byId.get('tgb-6')?.reference ?? {})).toBe(true);
+    const tgb1Reference = byId.get('tgb-1')?.reference;
+    if (!tgb1Reference || !('tcH' in tgb1Reference)) {
+      expect.fail('Expected tgb-1 reference.tcH to be present');
+    }
+    expect(tgb1Reference.tcH).toBeCloseTo(1.49, 2);
+
+    const tgb2Reference = byId.get('tgb-2')?.reference;
+    if (!tgb2Reference || !('tcH' in tgb2Reference)) {
+      expect.fail('Expected tgb-2 reference.tcH to be present');
+    }
+    expect(tgb2Reference.tcH).toBeCloseTo(3.36, 2);
+
+    const tgb6Reference = byId.get('tgb-6')?.reference;
+    if (!tgb6Reference || !('tcH' in tgb6Reference)) {
+      expect.fail('Expected tgb-6 reference.tcH to be present');
+    }
+    expect(tgb6Reference.tcH).toBeCloseTo(1.88, 2);
+    expect(result.qMaxBeforeM3s).toBeCloseTo(4.4508, 2);
   });
 });

@@ -14,30 +14,31 @@
   "subcatchments": [
     {
       "id": "tgb-1",
-      "areaHa": 85,
+      "areaHa": 81.5,
       "iaRatio": 0.165,
       "prf": 484,
       "tcFactor": 1,
       "lagToOutletH": 0,
       "reference": {
-        "cn": 78,
-        "tcH": 1.880515688137761
+        "cn": 75.25,
+        "tcH": 1.4920154598694333,
+        "cn_status": "thesis"
       },
       "measureAreas": [
         {
           "id": "tgb-1-a",
-          "areaHa": 85,
+          "areaHa": 81.5,
           "patches": [
             {
               "id": "tgb-1-patch",
-              "areaHa": 85,
-              "cn": 78
+              "areaHa": 81.5,
+              "cn": 75.25
             }
           ],
           "flowPath": [
             {
               "type": "pipe",
-              "lengthM": 6769.856477295939,
+              "lengthM": 5371.25565552996,
               "slope": 1,
               "k": 1,
               "rHydM": 1
@@ -50,30 +51,31 @@
     },
     {
       "id": "tgb-2",
-      "areaHa": 80,
-      "iaRatio": 0.165,
-      "prf": 484,
+      "areaHa": 132.7,
+      "iaRatio": 0.07,
+      "prf": 250,
       "tcFactor": 1,
       "lagToOutletH": 0.25,
       "reference": {
-        "cn": 80,
-        "tcH": 1.988395652558777
+        "cn": 75.59,
+        "tcH": 3.3569564684259467,
+        "cn_status": "thesis"
       },
       "measureAreas": [
         {
           "id": "tgb-2-a",
-          "areaHa": 80,
+          "areaHa": 132.7,
           "patches": [
             {
               "id": "tgb-2-patch",
-              "areaHa": 80,
-              "cn": 80
+              "areaHa": 132.7,
+              "cn": 75.59
             }
           ],
           "flowPath": [
             {
               "type": "pipe",
-              "lengthM": 7158.224349211597,
+              "lengthM": 12085.043286333408,
               "slope": 1,
               "k": 1,
               "rHydM": 1
@@ -86,31 +88,32 @@
     },
     {
       "id": "tgb-3",
-      "areaHa": 88,
-      "iaRatio": 0.165,
-      "prf": 484,
+      "areaHa": 111.7,
+      "iaRatio": 0.085,
+      "prf": 250,
       "tcFactor": 1,
-      "lagToOutletH": 0.5,
+      "lagToOutletH": 0.25,
       "reference": {
-        "cn": 73,
-        "tcH": 2.2576234811150075,
-        "todo": "TODO(DATA): placeholder CN 73.0"
+        "cn": 73.1,
+        "tcH": 3.642988327047899,
+        "cn_status": "estimated-from-B7",
+        "cn_warning": "CN estimated-from-B7"
       },
       "measureAreas": [
         {
           "id": "tgb-3-a",
-          "areaHa": 88,
+          "areaHa": 111.7,
           "patches": [
             {
               "id": "tgb-3-patch",
-              "areaHa": 88,
-              "cn": 73
+              "areaHa": 111.7,
+              "cn": 73.1
             }
           ],
           "flowPath": [
             {
               "type": "pipe",
-              "lengthM": 8127.444532014028,
+              "lengthM": 13114.757977372436,
               "slope": 1,
               "k": 1,
               "rHydM": 1
@@ -123,31 +126,32 @@
     },
     {
       "id": "tgb-4",
-      "areaHa": 84,
-      "iaRatio": 0.165,
-      "prf": 484,
+      "areaHa": 77.2,
+      "iaRatio": 0.08,
+      "prf": 250,
       "tcFactor": 1,
-      "lagToOutletH": 0.75,
+      "lagToOutletH": 0.25,
       "reference": {
-        "cn": 74,
-        "tcH": 3.599174672986554,
-        "todo": "TODO(DATA): placeholder CN 74.0"
+        "cn": 74.4,
+        "tcH": 3.3675308810710445,
+        "cn_status": "estimated-from-B7",
+        "cn_warning": "CN estimated-from-B7"
       },
       "measureAreas": [
         {
           "id": "tgb-4-a",
-          "areaHa": 84,
+          "areaHa": 77.2,
           "patches": [
             {
               "id": "tgb-4-patch",
-              "areaHa": 84,
-              "cn": 74
+              "areaHa": 77.2,
+              "cn": 74.4
             }
           ],
           "flowPath": [
             {
               "type": "pipe",
-              "lengthM": 12957.028822751596,
+              "lengthM": 12123.11117185576,
               "slope": 1,
               "k": 1,
               "rHydM": 1
@@ -160,30 +164,31 @@
     },
     {
       "id": "tgb-5",
-      "areaHa": 83,
-      "iaRatio": 0.165,
-      "prf": 484,
+      "areaHa": 61.4,
+      "iaRatio": 0.07,
+      "prf": 250,
       "tcFactor": 1,
-      "lagToOutletH": 1,
+      "lagToOutletH": 0.25,
       "reference": {
-        "cn": 76,
-        "tcH": 5.9014664108951695
+        "cn": 73.82,
+        "tcH": 3.088933893664865,
+        "cn_status": "thesis"
       },
       "measureAreas": [
         {
           "id": "tgb-5-a",
-          "areaHa": 83,
+          "areaHa": 61.4,
           "patches": [
             {
               "id": "tgb-5-patch",
-              "areaHa": 83,
-              "cn": 76
+              "areaHa": 61.4,
+              "cn": 73.82
             }
           ],
           "flowPath": [
             {
               "type": "pipe",
-              "lengthM": 21245.27907922261,
+              "lengthM": 11120.162017193514,
               "slope": 1,
               "k": 1,
               "rHydM": 1
@@ -198,12 +203,13 @@
       "id": "tgb-6",
       "areaHa": 90,
       "iaRatio": 0.165,
-      "prf": 484,
+      "prf": 350,
       "tcFactor": 1,
-      "lagToOutletH": 1.25,
+      "lagToOutletH": 0,
       "reference": {
-        "cn": 82,
-        "tcH": 2.147369502724804
+        "cn": 80.58,
+        "tcH": 1.8794550271526484,
+        "cn_status": "thesis"
       },
       "measureAreas": [
         {
@@ -213,13 +219,13 @@
             {
               "id": "tgb-6-patch",
               "areaHa": 90,
-              "cn": 82
+              "cn": 80.58
             }
           ],
           "flowPath": [
             {
               "type": "pipe",
-              "lengthM": 7730.530209809294,
+              "lengthM": 6766.038097749534,
               "slope": 1,
               "k": 1,
               "rHydM": 1
@@ -232,31 +238,32 @@
     },
     {
       "id": "tgb-7",
-      "areaHa": 77,
-      "iaRatio": 0.165,
-      "prf": 484,
+      "areaHa": 31.9,
+      "iaRatio": 0.085,
+      "prf": 250,
       "tcFactor": 1,
-      "lagToOutletH": 1.5,
+      "lagToOutletH": 0.25,
       "reference": {
-        "cn": 75,
-        "tcH": 15.84312597161053,
-        "todo": "TODO(DATA): placeholder CN 75.0"
+        "cn": 73.6,
+        "tcH": 2.824890367416233,
+        "cn_status": "estimated-from-B7",
+        "cn_warning": "CN estimated-from-B7"
       },
       "measureAreas": [
         {
           "id": "tgb-7-a",
-          "areaHa": 77,
+          "areaHa": 31.9,
           "patches": [
             {
               "id": "tgb-7-patch",
-              "areaHa": 77,
-              "cn": 75
+              "areaHa": 31.9,
+              "cn": 73.6
             }
           ],
           "flowPath": [
             {
               "type": "pipe",
-              "lengthM": 57035.25349779791,
+              "lengthM": 10169.605322698439,
               "slope": 1,
               "k": 1,
               "rHydM": 1

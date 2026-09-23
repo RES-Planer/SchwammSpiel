@@ -30,6 +30,8 @@ export type ScenarioRainEvent = {
 export type ScenarioCnReference = {
   cn: number;
   tcH: number;
+  cn_status?: 'thesis' | 'estimated-from-B7';
+  cn_warning?: string;
   todo?: string;
 };
 
