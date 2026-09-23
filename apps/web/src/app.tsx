@@ -1,5 +1,10 @@
 import {
   analyzeStonefieldHydraulics,
+  type Catchment,
+  type FlowSegmentType,
+  type ScenarioEvaluationResult,
+  type ScenarioHydrograph,
+  type ScenarioMeasure,
   sizeStorageForTarget,
   stonefieldGeometry,
   swaleGeometry,
@@ -9,7 +14,9 @@ import * as maplibregl from 'maplibre-gl';
 import type { JSX } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 
+import { AssumptionsModal } from './AssumptionsModal';
 import { geodesicLengthM, geodesicPolygonAreaM2, type LngLat } from './geodesy';
+import { HydrographChart } from './HydrographChart';
 import { locales, type Locale, t } from './i18n';
 import {
   buildDataUrl,
@@ -23,6 +30,21 @@ import {
   type LayerManifest,
   type SubcatchmentDetails,
 } from './mapData';
+import {
+  buildRainChartSeries,
+  estimateFillTimeH,
+  estimateScenarioCost,
+  findMeasureSubcatchmentId,
+  getPeakDelayH,
+  getPeakReductionPct,
+  getProtectionPointOptions,
+  getStarRating,
+  OUTLET_PROTECTION_POINT_ID,
+  pointInPolygon,
+  type MeasureSummaryLike,
+  type SubcatchmentPolygon,
+  type UnitCosts,
+} from './scenarioResults';
 import {
   commitHistoryState,
   createHistoryState,
@@ -74,12 +96,12 @@ type MeasureSummary = {
 type MapFeature =
   | {
       type: 'Feature';
-      properties: Record<string, boolean | string>;
+      properties: Record<string, boolean | number | string>;
       geometry: { type: 'Polygon'; coordinates: [number, number][][] };
     }
   | {
       type: 'Feature';
-      properties: Record<string, boolean | string>;
+      properties: Record<string, boolean | number | string>;
       geometry: { type: 'LineString'; coordinates: [number, number][] };
     };
 
@@ -87,6 +109,34 @@ type MapFeatureCollection = {
   type: 'FeatureCollection';
   features: MapFeature[];
 };
+
+type LineFeature = {
+  type: 'Feature';
+  properties: Record<string, unknown>;
+  geometry: { type: 'LineString'; coordinates: [number, number][] };
+};
+
+type PolygonFeature = {
+  type: 'Feature';
+  properties: Record<string, unknown>;
+  geometry: { type: 'Polygon'; coordinates: [number, number][][] };
+};
+
+type FeatureCollection<TFeature> = {
+  type: 'FeatureCollection';
+  features: TFeature[];
+};
+
+type WorkerRequest = {
+  id: number;
+  catchment: Catchment;
+  rainEventId: string;
+  measuresOn: boolean;
+};
+
+type WorkerResponse =
+  | { id: number; ok: true; result: ScenarioEvaluationResult }
+  | { id: number; ok: false; error: string };
 
 const toolOrder: DrawMode[] = [
   { kind: 'landUseChange', geometryType: 'Polygon' },
@@ -103,14 +153,29 @@ export function App() {
   const [manifest, setManifest] = useState<CatchmentManifest | null>(null);
   const [layerVisibility, setLayerVisibility] = useState<Record<string, boolean>>({});
   const [selectedSubcatchment, setSelectedSubcatchment] = useState<SubcatchmentDetails | null>(null);
+  const [catchmentData, setCatchmentData] = useState<Catchment | null>(null);
+  const [subcatchmentPolygons, setSubcatchmentPolygons] = useState<SubcatchmentPolygon[]>([]);
+  const [flowPathFeatures, setFlowPathFeatures] = useState<FeatureCollection<LineFeature> | null>(null);
+  const [unitCosts, setUnitCosts] = useState<UnitCosts | null>(null);
   const [loadingState, setLoadingState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState('');
   const [shareMessageKey, setShareMessageKey] = useState('');
+  const [resultError, setResultError] = useState('');
+  const [evaluationState, setEvaluationState] = useState<'idle' | 'running' | 'ready' | 'error'>('idle');
+  const [evaluationResult, setEvaluationResult] = useState<ScenarioEvaluationResult | null>(null);
+  const [selectedRainEventId, setSelectedRainEventId] = useState('');
+  const [selectedProtectionPointId, setSelectedProtectionPointId] =
+    useState<string>(OUTLET_PROTECTION_POINT_ID);
+  const [animationIndex, setAnimationIndex] = useState(0);
+  const [animationPlaying, setAnimationPlaying] = useState(false);
+  const [showAssumptions, setShowAssumptions] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
   const [draftCoordinates, setDraftCoordinates] = useState<LngLat[]>([]);
   const [selectedMeasureId, setSelectedMeasureId] = useState<string | null>(null);
   const mapElementRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  const workerRequestIdRef = useRef(0);
   const scaleControlRef = useRef<maplibregl.ScaleControl | null>(null);
   const attributionControlRef = useRef<maplibregl.AttributionControl | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -186,11 +251,27 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    const worker = new Worker(new URL('./evaluateScenario.worker.ts', import.meta.url), { type: 'module' });
+    workerRef.current = worker;
+
+    return () => {
+      workerRef.current = null;
+      worker.terminate();
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     setLoadingState('loading');
     setLoadError('');
     setSelectedSubcatchment(null);
+    setCatchmentData(null);
+    setSubcatchmentPolygons([]);
+    setFlowPathFeatures(null);
+    setEvaluationResult(null);
+    setEvaluationState('idle');
+    setResultError('');
 
     void fetch(buildManifestUrl(import.meta.env.BASE_URL, catchmentId))
       .then(async (response) => {
@@ -221,6 +302,119 @@ export function App() {
       cancelled = true;
     };
   }, [catchmentId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetch(buildDataUrl(import.meta.env.BASE_URL, catchmentId, 'catchment.json'))
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return (await response.json()) as Catchment;
+      })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        setCatchmentData(data);
+        setSelectedRainEventId(data.rainEvents[0]?.id ?? '');
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        setCatchmentData(null);
+      });
+
+    void fetch(`${import.meta.env.BASE_URL}data/unit_costs.json`)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return (await response.json()) as UnitCosts;
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setUnitCosts(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUnitCosts(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [catchmentId]);
+
+  useEffect(() => {
+    const flowPathLayer = manifest?.layers.find(
+      (layer): layer is Extract<LayerManifest, { type: 'geojson' }> =>
+        layer.type === 'geojson' && layer.id === 'flow-paths',
+    );
+    const subcatchmentLayer = manifest?.layers.find(
+      (layer): layer is Extract<LayerManifest, { type: 'geojson' }> =>
+        layer.type === 'geojson' && layer.inspectable === true,
+    );
+    if (!flowPathLayer || !subcatchmentLayer) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void fetch(buildDataUrl(import.meta.env.BASE_URL, catchmentId, flowPathLayer.path))
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return (await response.json()) as FeatureCollection<LineFeature>;
+      })
+      .then((data) => {
+        if (!cancelled) {
+          setFlowPathFeatures(data);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFlowPathFeatures(null);
+        }
+      });
+
+    void fetch(buildDataUrl(import.meta.env.BASE_URL, catchmentId, subcatchmentLayer.path))
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        return (await response.json()) as FeatureCollection<PolygonFeature>;
+      })
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+        setSubcatchmentPolygons(
+          data.features.reduce<SubcatchmentPolygon[]>((entries, feature) => {
+            const id = feature.properties.id;
+            const polygon = feature.geometry.coordinates[0];
+            if (typeof id === 'string' && polygon) {
+              entries.push({ id, coordinates: polygon });
+            }
+            return entries;
+          }, []),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSubcatchmentPolygons([]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [catchmentId, manifest]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -368,6 +562,7 @@ export function App() {
 
     const sourceId = 'scenario-measures-source';
     const draftSourceId = 'scenario-draft-source';
+    const flowAnimationSourceId = 'scenario-flow-animation-source';
     if (!map.getSource(sourceId)) {
       map.addSource(sourceId, {
         type: 'geojson',
@@ -379,9 +574,27 @@ export function App() {
         source: sourceId,
         filter: ['==', ['geometry-type'], 'Polygon'],
         paint: {
-          'fill-color': '#0ea5e9',
+          'fill-color': [
+            'case',
+            ['boolean', ['get', 'overflowing'], false],
+            '#f97316',
+            [
+              'interpolate',
+              ['linear'],
+              ['coalesce', ['get', 'fillRatio'], 0],
+              0,
+              '#bae6fd',
+              1,
+              '#0284c7',
+            ],
+          ],
           'fill-outline-color': '#0369a1',
-          'fill-opacity': ['case', ['boolean', ['get', 'enabled'], true], 0.22, 0.08],
+          'fill-opacity': [
+            'case',
+            ['boolean', ['get', 'enabled'], true],
+            ['+', 0.14, ['*', 0.42, ['coalesce', ['get', 'fillRatio'], 0]]],
+            0.08,
+          ],
         },
       });
       map.addLayer({
@@ -390,7 +603,12 @@ export function App() {
         source: sourceId,
         filter: ['==', ['geometry-type'], 'LineString'],
         paint: {
-          'line-color': '#0369a1',
+          'line-color': [
+            'case',
+            ['boolean', ['get', 'overflowing'], false],
+            '#ef4444',
+            '#0369a1',
+          ],
           'line-width': 3,
           'line-opacity': ['case', ['boolean', ['get', 'enabled'], true], 0.95, 0.35],
         },
@@ -422,7 +640,91 @@ export function App() {
         },
       });
     }
+
+    if (!map.getSource(flowAnimationSourceId)) {
+      map.addSource(flowAnimationSourceId, {
+        type: 'geojson',
+        data: emptyFeatureCollection(),
+      });
+      map.addLayer({
+        id: 'scenario-flow-animation-line',
+        type: 'line',
+        source: flowAnimationSourceId,
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+        },
+        paint: {
+          'line-color': [
+            'interpolate',
+            ['linear'],
+            ['coalesce', ['get', 'currentQ'], 0],
+            0,
+            '#86efac',
+            0.5,
+            '#facc15',
+            1,
+            '#ef4444',
+          ],
+          'line-width': [
+            'interpolate',
+            ['linear'],
+            ['coalesce', ['get', 'currentQ'], 0],
+            0,
+            2,
+            1,
+            10,
+          ],
+          'line-opacity': 0.92,
+        },
+      });
+    }
   }, [mapReady]);
+
+  const measureSummaries = useMemo(() => {
+    return new Map<string, MeasureSummaryLike>(
+      scenario.measures.map((measure) => [measure.id, summarizeMeasure(measure)]),
+    );
+  }, [scenario.measures]);
+
+  const protectionPointOptions = useMemo(
+    () => (catchmentData ? getProtectionPointOptions(catchmentData) : []),
+    [catchmentData],
+  );
+
+  const selectedRainEvent = useMemo(
+    () => catchmentData?.rainEvents.find((event) => event.id === selectedRainEventId) ?? null,
+    [catchmentData, selectedRainEventId],
+  );
+
+  const rainChartSeries = useMemo(() => {
+    if (!selectedRainEvent) {
+      return null;
+    }
+    const dtH = evaluationResult?.after.dtH ?? Math.max(selectedRainEvent.durationH / 24, 0.1);
+    return buildRainChartSeries(selectedRainEvent, dtH);
+  }, [evaluationResult, selectedRainEvent]);
+
+  const protectionPointMetrics = useMemo(() => {
+    if (!evaluationResult) {
+      return null;
+    }
+    const peakReductionPct = getPeakReductionPct(evaluationResult, selectedProtectionPointId);
+    return {
+      peakReductionPct,
+      peakDelayH: getPeakDelayH(evaluationResult, selectedProtectionPointId),
+      stars: getStarRating(peakReductionPct),
+    };
+  }, [evaluationResult, selectedProtectionPointId]);
+
+  const costEstimate = useMemo(() => {
+    if (!unitCosts) {
+      return null;
+    }
+    return estimateScenarioCost(scenario.measures, measureSummaries, unitCosts);
+  }, [measureSummaries, scenario.measures, unitCosts]);
+
+  const currentAnimationTimeH = evaluationResult ? animationIndex * evaluationResult.after.dtH : 0;
 
   useEffect(() => {
     const map = mapRef.current;
@@ -435,8 +737,16 @@ export function App() {
       return;
     }
 
-    source.setData(measuresToFeatureCollection(scenario.measures));
-  }, [mapReady, scenario.measures]);
+    source.setData(
+      measuresToFeatureCollection(
+        scenario.measures,
+        evaluationResult,
+        animationIndex,
+        subcatchmentPolygons,
+        measureSummaries,
+      ),
+    );
+  }, [animationIndex, evaluationResult, mapReady, measureSummaries, scenario.measures, subcatchmentPolygons]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -451,6 +761,25 @@ export function App() {
 
     source.setData(draftToFeatureCollection(drawMode, draftCoordinates));
   }, [drawMode, draftCoordinates, mapReady]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) {
+      return;
+    }
+    const source = map.getSource('scenario-flow-animation-source') as maplibregl.GeoJSONSource | undefined;
+    if (!source) {
+      return;
+    }
+    source.setData(
+      buildAnimatedFlowPathCollection(
+        flowPathFeatures,
+        subcatchmentPolygons,
+        evaluationResult,
+        currentAnimationTimeH,
+      ),
+    );
+  }, [currentAnimationTimeH, evaluationResult, flowPathFeatures, mapReady, subcatchmentPolygons]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -476,6 +805,39 @@ export function App() {
     document.documentElement.lang = locale;
   }, [locale]);
 
+  useEffect(() => {
+    if (!animationPlaying || !evaluationResult) {
+      return undefined;
+    }
+    const maxIndex = evaluationResult.after.qM3s.length - 1;
+    const timeout = window.setTimeout(() => {
+      setAnimationIndex((current) => (current >= maxIndex ? 0 : current + 1));
+    }, 450);
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [animationPlaying, evaluationResult, animationIndex]);
+
+  useEffect(() => {
+    if (!selectedSubcatchment) {
+      return;
+    }
+    setSelectedProtectionPointId(selectedSubcatchment.id);
+  }, [selectedSubcatchment]);
+
+  useEffect(() => {
+    if (!catchmentData) {
+      setSelectedProtectionPointId(OUTLET_PROTECTION_POINT_ID);
+      return;
+    }
+    setSelectedProtectionPointId((current) => {
+      const exists =
+        current === OUTLET_PROTECTION_POINT_ID ||
+        catchmentData.subcatchments.some((subcatchment) => subcatchment.id === current);
+      return exists ? current : OUTLET_PROTECTION_POINT_ID;
+    });
+  }, [catchmentData]);
+
   const visibleLayers = manifest?.layers.filter((layer) => layerVisibility[layer.id] ?? layer.visibleByDefault ?? true) ?? [];
   const selectedMeasure = scenario.measures.find((measure) => measure.id === selectedMeasureId) ?? null;
 
@@ -490,7 +852,11 @@ export function App() {
       kind,
       enabled: true,
       geometry,
-      params: defaultParams(kind),
+      params: {
+        ...defaultParams(kind),
+        targetSubcatchmentId:
+          selectedSubcatchment?.id ?? catchmentData?.subcatchments[0]?.id ?? '',
+      },
     };
 
     applyScenarioUpdate((current) => ({
@@ -650,6 +1016,49 @@ export function App() {
       setShareMessageKey('scenario.share.invalid');
       return;
     }
+  };
+
+  const triggerRainScenario = () => {
+    const worker = workerRef.current;
+    if (!worker || !catchmentData || !selectedRainEventId) {
+      return;
+    }
+
+    const requestId = workerRequestIdRef.current + 1;
+    workerRequestIdRef.current = requestId;
+    setEvaluationState('running');
+    setResultError('');
+    setAnimationPlaying(false);
+    setAnimationIndex(0);
+
+    const request: WorkerRequest = {
+      id: requestId,
+      catchment: buildEvaluableCatchment(
+        catchmentData,
+        scenario.measures,
+        subcatchmentPolygons,
+        selectedSubcatchment?.id ?? catchmentData.subcatchments[0]?.id ?? '',
+      ),
+      rainEventId: selectedRainEventId,
+      measuresOn: true,
+    };
+
+    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+      if (event.data.id !== requestId) {
+        return;
+      }
+      if (event.data.ok) {
+        setEvaluationResult(event.data.result);
+        setEvaluationState('ready');
+        setAnimationIndex(0);
+        return;
+      }
+      setEvaluationResult(null);
+      setEvaluationState('error');
+      setResultError(event.data.error);
+    };
+
+    worker.postMessage(request);
   };
 
   const draftLengthM = geodesicLengthM(draftCoordinates);
@@ -918,8 +1327,183 @@ export function App() {
           ) : (
             <p className="panel-empty">{t(locale, 'map.details.empty')}</p>
           )}
+
+          <section className="results-section">
+            <h2>{t(locale, 'result.rain.title')}</h2>
+            <label>
+              {t(locale, 'result.rain.event')}
+              <select
+                value={selectedRainEventId}
+                onChange={(event) =>
+                  setSelectedRainEventId((event.target as HTMLSelectElement).value)
+                }
+                disabled={!catchmentData || catchmentData.rainEvents.length === 0}
+              >
+                {catchmentData?.rainEvents.map((rainEvent) => (
+                  <option key={rainEvent.id} value={rainEvent.id}>
+                    {rainEvent.name ?? rainEvent.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={triggerRainScenario}
+              disabled={!catchmentData || !selectedRainEventId || evaluationState === 'running'}
+            >
+              {evaluationState === 'running'
+                ? t(locale, 'result.rain.running')
+                : t(locale, 'result.rain.trigger')}
+            </button>
+            {resultError ? <p className="warning-text">{resultError}</p> : null}
+            {selectedRainEvent ? (
+              <p className="subtitle">
+                {formatValue(numberFormatter, selectedRainEvent.pMm, 'mm')} ·{' '}
+                {formatValue(numberFormatter, selectedRainEvent.durationH, 'h')}
+              </p>
+            ) : null}
+          </section>
+
+          {evaluationResult ? (
+            <>
+              <section className="results-section">
+                <div className="results-header">
+                  <h2>{t(locale, 'result.animation.title')}</h2>
+                  <span>{formatValue(numberFormatter, currentAnimationTimeH, 'h')}</span>
+                </div>
+                <div className="animation-controls">
+                  <button type="button" onClick={() => setAnimationPlaying((current) => !current)}>
+                    {animationPlaying ? t(locale, 'result.animation.pause') : t(locale, 'result.animation.play')}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(0, evaluationResult.after.qM3s.length - 1)}
+                    value={animationIndex}
+                    onInput={(event) => {
+                      setAnimationPlaying(false);
+                      setAnimationIndex(Number((event.target as HTMLInputElement).value));
+                    }}
+                  />
+                </div>
+                <ResultNote locale={locale} onOpenAssumptions={() => setShowAssumptions(true)} />
+              </section>
+
+              <section className="results-section">
+                <h2>{t(locale, 'result.chart.title')}</h2>
+                <label>
+                  {t(locale, 'result.protectionPoint')}
+                  <select
+                    value={selectedProtectionPointId}
+                    onChange={(event) =>
+                      setSelectedProtectionPointId((event.target as HTMLSelectElement).value)
+                    }
+                  >
+                    {protectionPointOptions.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.id === OUTLET_PROTECTION_POINT_ID
+                          ? t(locale, 'result.outlet')
+                          : option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {rainChartSeries ? (
+                  <HydrographChart
+                    locale={localeTag}
+                    labels={{
+                      rainfallAxis: t(locale, 'result.axis.rainfall'),
+                      timeAxis: t(locale, 'result.axis.time'),
+                      dischargeAxis: t(locale, 'result.axis.discharge'),
+                      before: t(locale, 'result.series.before'),
+                      after: t(locale, 'result.series.after'),
+                      rainfallAria: t(locale, 'result.chart.rainAria'),
+                      hydrographAria: t(locale, 'result.chart.hydrographAria'),
+                    }}
+                    rainfall={rainChartSeries}
+                    before={getHydrographForChart(evaluationResult, selectedProtectionPointId).before}
+                    after={getHydrographForChart(evaluationResult, selectedProtectionPointId).after}
+                  />
+                ) : null}
+                <ResultNote locale={locale} onOpenAssumptions={() => setShowAssumptions(true)} />
+              </section>
+
+              <section className="results-section">
+                <h2>{t(locale, 'result.score.title')}</h2>
+                {protectionPointMetrics ? (
+                  <>
+                    <div
+                      className="star-rating"
+                      aria-label={`${protectionPointMetrics.stars} ${t(locale, 'result.score.stars')}`}
+                    >
+                      {Array.from({ length: 3 }, (_, index) => (
+                        <span key={index} className={index < protectionPointMetrics.stars ? 'star-on' : 'star-off'}>
+                          ★
+                        </span>
+                      ))}
+                    </div>
+                    <dl className="score-grid">
+                      <div>
+                        <dt>{t(locale, 'result.metric.peakReduction')}</dt>
+                        <dd>{formatValue(numberFormatter, protectionPointMetrics.peakReductionPct, '%')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'result.metric.peakDelay')}</dt>
+                        <dd>{formatValue(numberFormatter, protectionPointMetrics.peakDelayH, 'h')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'result.metric.retainedVolume')}</dt>
+                        <dd>{formatValue(numberFormatter, evaluationResult.retainedVolumeM3, 'm³')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'result.metric.fillAndPeak')}</dt>
+                        <dd>
+                          {buildFillAndPeakLabel(
+                            locale,
+                            numberFormatter,
+                            scenario.measures,
+                            measureSummaries,
+                            evaluationResult,
+                            subcatchmentPolygons,
+                            selectedSubcatchment?.id ?? catchmentData?.subcatchments[0]?.id ?? '',
+                          )}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'result.metric.areaUse')}</dt>
+                        <dd>{formatValue(numberFormatter, evaluationResult.areaUsedHa, 'ha')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'result.metric.excavation')}</dt>
+                        <dd>{formatValue(numberFormatter, evaluationResult.excavationM3, 'm³')}</dd>
+                      </div>
+                      <div>
+                        <dt>{t(locale, 'result.metric.cost')}</dt>
+                        <dd>{costEstimate ? formatCurrency(localeTag, costEstimate.totalEur) : '–'}</dd>
+                      </div>
+                    </dl>
+                    {unitCosts?.note ? <p className="hint-text">{unitCosts.note}</p> : null}
+                    {evaluationResult.warnings.length > 0 ? (
+                      <ul className="warning-list">
+                        {evaluationResult.warnings.map((warning) => (
+                          <li key={`${warning.scope}-${warning.code}-${warning.message}`}>{warning.message}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </>
+                ) : null}
+                <ResultNote locale={locale} onOpenAssumptions={() => setShowAssumptions(true)} />
+              </section>
+            </>
+          ) : null}
         </aside>
       </section>
+
+      <AssumptionsModal
+        locale={locale}
+        open={showAssumptions}
+        onClose={() => setShowAssumptions(false)}
+      />
     </main>
   );
 }
@@ -985,12 +1569,25 @@ function emptyFeatureCollection(): MapFeatureCollection {
   };
 }
 
-function measuresToFeatureCollection(measures: MeasureState[]): MapFeatureCollection {
+function measuresToFeatureCollection(
+  measures: MeasureState[],
+  evaluationResult: ScenarioEvaluationResult | null,
+  animationIndex: number,
+  subcatchmentPolygons: SubcatchmentPolygon[],
+  measureSummaries: Map<string, MeasureSummaryLike>,
+): MapFeatureCollection {
   const features: MapFeature[] = [];
   for (const measure of measures) {
     if (!measure.geometry) {
       continue;
     }
+    const visuals = evaluateMeasureVisualState(
+      measure,
+      evaluationResult,
+      animationIndex,
+      subcatchmentPolygons,
+      measureSummaries,
+    );
     if (measure.geometry.type === 'Polygon') {
       features.push({
         type: 'Feature',
@@ -998,6 +1595,8 @@ function measuresToFeatureCollection(measures: MeasureState[]): MapFeatureCollec
           id: measure.id,
           kind: measure.kind,
           enabled: measure.enabled,
+          fillRatio: visuals.fillRatio,
+          overflowing: visuals.overflowing,
         },
         geometry: {
           type: 'Polygon',
@@ -1012,6 +1611,8 @@ function measuresToFeatureCollection(measures: MeasureState[]): MapFeatureCollec
         id: measure.id,
         kind: measure.kind,
         enabled: measure.enabled,
+        fillRatio: visuals.fillRatio,
+        overflowing: visuals.overflowing,
       },
       geometry: {
         type: 'LineString',
@@ -1536,4 +2137,353 @@ function renderMeasureEditor(
         </div>
       );
   }
+}
+
+function formatCurrency(localeTag: string, value: number): string {
+  return new Intl.NumberFormat(localeTag, {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function getHydrographForChart(
+  evaluationResult: ScenarioEvaluationResult,
+  protectionPointId: string,
+): { before: ScenarioHydrograph; after: ScenarioHydrograph } {
+  if (protectionPointId === OUTLET_PROTECTION_POINT_ID) {
+    return {
+      before: evaluationResult.before,
+      after: evaluationResult.after,
+    };
+  }
+  const subcatchment = evaluationResult.subcatchments.find((entry) => entry.id === protectionPointId);
+  if (!subcatchment) {
+    return {
+      before: evaluationResult.before,
+      after: evaluationResult.after,
+    };
+  }
+  return {
+    before: subcatchment.before,
+    after: subcatchment.after,
+  };
+}
+
+function interpolateHydrographQ(hydrograph: ScenarioHydrograph, timeH: number): number {
+  if (timeH < 0 || hydrograph.qM3s.length === 0) {
+    return 0;
+  }
+  const rawIndex = timeH / hydrograph.dtH;
+  const lo = Math.floor(rawIndex);
+  const hi = lo + 1;
+  const loQ = hydrograph.qM3s[lo] ?? 0;
+  const hiQ = hydrograph.qM3s[hi] ?? loQ;
+  const fraction = rawIndex - lo;
+  return loQ + (hiQ - loQ) * fraction;
+}
+
+function buildEvaluableCatchment(
+  catchment: Catchment,
+  measures: MeasureState[],
+  subcatchmentPolygons: SubcatchmentPolygon[],
+  fallbackSubcatchmentId: string,
+): Catchment {
+  const measuresBySubcatchment = new Map<string, ScenarioMeasure[]>();
+
+  for (const measure of measures) {
+    if (!measure.enabled) {
+      continue;
+    }
+    const targetSubcatchmentId = findMeasureSubcatchmentId(
+      measure,
+      subcatchmentPolygons,
+      fallbackSubcatchmentId,
+    );
+    const converted = toScenarioMeasure(catchment, targetSubcatchmentId, measure);
+    if (!converted) {
+      continue;
+    }
+    const bucket = measuresBySubcatchment.get(targetSubcatchmentId) ?? [];
+    bucket.push(converted);
+    measuresBySubcatchment.set(targetSubcatchmentId, bucket);
+  }
+
+  return {
+    ...catchment,
+    subcatchments: catchment.subcatchments.map((subcatchment) => ({
+      ...subcatchment,
+      measureAreas: subcatchment.measureAreas.map((measureArea, index) => ({
+        ...measureArea,
+        measures: index === 0 ? (measuresBySubcatchment.get(subcatchment.id) ?? []) : measureArea.measures,
+      })),
+    })),
+  };
+}
+
+function toScenarioMeasure(
+  catchment: Catchment,
+  targetSubcatchmentId: string,
+  measure: MeasureState,
+): ScenarioMeasure | null {
+  const targetSubcatchment = catchment.subcatchments.find((entry) => entry.id === targetSubcatchmentId);
+  const targetMeasureArea = targetSubcatchment?.measureAreas[0];
+  const summary = summarizeMeasure(measure);
+  const areaShare = Math.min(
+    0.95,
+    Math.max(0.05, targetSubcatchment ? Math.max(summary.areaHa, 0.1) / targetSubcatchment.areaHa : 0.15),
+  );
+  const baseFlowPath = targetMeasureArea?.flowPath ?? [];
+  const chainageM = baseFlowPath.reduce((sum, segment) => sum + segment.lengthM, 0) * 0.35;
+
+  switch (measure.kind) {
+    case 'landUseChange': {
+      const patchId = targetMeasureArea?.patches[0]?.id;
+      if (!patchId) {
+        return null;
+      }
+      return {
+        kind: 'landUseChange',
+        patchId,
+        cn: targetCnFromMeasure(measure),
+        areaUsedHa: Math.max(0.05, summary.areaHa),
+      };
+    }
+    case 'storageWithPipe':
+      return {
+        kind: 'storage',
+        shape:
+          measure.params.form === 'hollow'
+            ? {
+                form: 'hollow',
+                lengthM: Math.max(2, Math.sqrt(Math.max(summary.areaHa, 0.01) * 1e4)),
+                widthM: Math.max(2, Math.sqrt(Math.max(summary.areaHa, 0.01) * 1e4)),
+                hMaxM: readNumber(measure.params.depthM, 1.2),
+              }
+            : {
+                form: 'prism',
+                baseAreaM2: Math.max(20, Math.max(summary.areaHa, 0.01) * 1e4),
+                hMaxM: readNumber(measure.params.depthM, 1.2),
+              },
+        outlet: {
+          type: 'pipe',
+          dnMm: readNumber(measure.params.pipeDnMm, 300),
+          lengthM: readNumber(measure.params.pipeLengthM, 12),
+        },
+        areaUsedHa: Math.max(0.01, summary.areaHa),
+        excavationM3: summary.excavationM3,
+      };
+    case 'forestMulches': {
+      const count = Math.max(1, readNumber(measure.params.count, 3));
+      const volumeEachM3 = Math.max(1, readNumber(measure.params.volumeEachM3, 8));
+      const delayH = measure.params.location === 'top' ? 0.15 : measure.params.location === 'low' ? 0.75 : 0.4;
+      return {
+        kind: 'retentionGroup',
+        mode: 'physical',
+        elements: Array.from({ length: count }, (_, index) => ({
+          id: `${measure.id}-${index}`,
+          volumeM3: volumeEachM3,
+          areaShare: Math.min(0.9, 0.9 / count),
+          delayH,
+        })),
+        areaUsedHa: Math.max(0, summary.areaHa),
+        excavationM3: summary.excavationM3,
+      };
+    }
+    case 'swale':
+      return {
+        kind: 'swale',
+        chainageM,
+        landCoverK: readNumber(measure.params.landCoverK, 12),
+        lengthM: Math.max(10, summary.lengthM),
+        bottomWidthM: readNumber(measure.params.bottomWidthM, 0.5),
+        depthM: readNumber(measure.params.depthM, 0.5),
+        sideSlopeM: readNumber(measure.params.sideSlopeM, 2),
+        areaShare,
+        elevationProfileM: parseElevationProfile(measure.params.elevationProfile),
+        areaUsedHa: Math.max(0.01, summary.areaHa),
+      };
+    case 'stonefield': {
+      const areaM2 = Math.max(25, Math.max(summary.areaHa, 0.01) * 1e4);
+      const widthM = Math.sqrt(areaM2);
+      return {
+        kind: 'stonefield',
+        chainageM,
+        widthM,
+        lengthFlowM: widthM,
+        slope: readNumber(measure.params.slope, 0.03),
+        areaShare,
+        spacingM: readNumber(measure.params.spacingM, 2),
+        holeDiameterM: readNumber(measure.params.holeDiameterM, 0.8),
+        holeDepthM: readNumber(measure.params.holeDepthM, 1),
+        porosity: readNumber(measure.params.porosity, 0.35),
+        d50M: readNumber(measure.params.d50M, 0.08),
+        kStone: readNumber(measure.params.kStone, 35),
+        areaUsedHa: Math.max(0.01, summary.areaHa),
+      };
+    }
+    case 'flowPathChange':
+      return {
+        kind: 'flowPathChange',
+        flowPath: [
+          {
+            type: readFlowSegmentType(measure.params.segmentType),
+            lengthM: Math.max(summary.lengthM, 20),
+            slope: 0.03,
+            k: readNumber(measure.params.roughnessK, 25),
+            rHydM: 0.1,
+          },
+        ],
+      };
+  }
+}
+
+function targetCnFromMeasure(measure: MeasureState): number {
+  const landUse = String(measure.params.landUse ?? 'arable');
+  const baseCn = landUse === 'forest' ? 62 : landUse === 'grassland' ? 74 : 84;
+  const mulchReduction = measure.params.mulchDirectSeed === 'yes' ? 7 : 0;
+  const tillageReduction =
+    measure.params.tillageDirection === 'terraced'
+      ? 4
+      : measure.params.tillageDirection === 'contour-parallel'
+        ? 2
+        : 0;
+  return Math.max(40, baseCn - mulchReduction - tillageReduction);
+}
+
+function readFlowSegmentType(value: string | number | boolean | undefined): Exclude<FlowSegmentType, 'trapezoid'> {
+  switch (value) {
+    case 'sheet':
+    case 'rill':
+    case 'hollow':
+    case 'pipe':
+    case 'stonefield':
+      return value;
+    default:
+      return 'hollow';
+  }
+}
+
+function evaluateMeasureVisualState(
+  measure: MeasureState,
+  evaluationResult: ScenarioEvaluationResult | null,
+  animationIndex: number,
+  subcatchmentPolygons: SubcatchmentPolygon[],
+  measureSummaries: Map<string, MeasureSummaryLike>,
+): { fillRatio: number; overflowing: boolean } {
+  if (!evaluationResult) {
+    return { fillRatio: 0, overflowing: false };
+  }
+  const summary = measureSummaries.get(measure.id);
+  const storageVolumeM3 = summary?.volumeM3 ?? 0;
+  if (storageVolumeM3 <= 0) {
+    return { fillRatio: 0, overflowing: false };
+  }
+  const targetSubcatchmentId = findMeasureSubcatchmentId(
+    measure,
+    subcatchmentPolygons,
+    evaluationResult.subcatchments[0]?.id ?? '',
+  );
+  const subcatchment = evaluationResult.subcatchments.find((entry) => entry.id === targetSubcatchmentId);
+  if (!subcatchment) {
+    return { fillRatio: 0, overflowing: false };
+  }
+  const areaShare = Math.min(0.95, Math.max(0.05, (summary?.areaHa ?? 0.05) / Math.max(0.1, subcatchment.areaUsedHa || 1)));
+  const dtS = subcatchment.after.dtH * 3600;
+  let storedM3 = 0;
+  for (let index = 0; index <= animationIndex; index += 1) {
+    storedM3 += Math.max(0, subcatchment.after.qM3s[index] ?? 0) * dtS * areaShare;
+  }
+  const fillRatio = Math.max(0, Math.min(1, storedM3 / storageVolumeM3));
+  return {
+    fillRatio,
+    overflowing: fillRatio >= 1 && animationIndex * subcatchment.after.dtH <= subcatchment.after.tPeakH,
+  };
+}
+
+function buildAnimatedFlowPathCollection(
+  flowPathFeatures: FeatureCollection<LineFeature> | null,
+  subcatchmentPolygons: SubcatchmentPolygon[],
+  evaluationResult: ScenarioEvaluationResult | null,
+  timeH: number,
+): FeatureCollection<LineFeature> {
+  if (!flowPathFeatures || !evaluationResult) {
+    return emptyFeatureCollection() as FeatureCollection<LineFeature>;
+  }
+
+  const maxQ = Math.max(evaluationResult.after.qMaxM3s, 1e-6);
+  const features = flowPathFeatures.features.map((feature, index) => {
+    const anchor = feature.geometry.coordinates[0];
+    const targetPolygon = anchor
+      ? subcatchmentPolygons.find((polygon) => pointInPolygon(anchor, polygon.coordinates))
+      : undefined;
+    const hydrograph =
+      index === flowPathFeatures.features.length - 1
+        ? evaluationResult.after
+        : (evaluationResult.subcatchments.find((entry) => entry.id === targetPolygon?.id)?.after ??
+          evaluationResult.after);
+    const qNorm = interpolateHydrographQ(hydrograph, timeH) / maxQ;
+    return {
+      ...feature,
+      properties: {
+        ...feature.properties,
+        currentQ: qNorm,
+      },
+    };
+  });
+
+  return {
+    type: 'FeatureCollection',
+    features,
+  };
+}
+
+function buildFillAndPeakLabel(
+  locale: Locale,
+  formatter: Intl.NumberFormat,
+  measures: MeasureState[],
+  measureSummaries: Map<string, MeasureSummaryLike>,
+  evaluationResult: ScenarioEvaluationResult,
+  subcatchmentPolygons: SubcatchmentPolygon[],
+  fallbackSubcatchmentId: string,
+): string {
+  let earliestFillH: number | null = null;
+
+  for (const measure of measures) {
+    if (!measure.enabled) {
+      continue;
+    }
+    const summary = measureSummaries.get(measure.id);
+    if (!summary || summary.volumeM3 <= 0) {
+      continue;
+    }
+    const targetId = findMeasureSubcatchmentId(measure, subcatchmentPolygons, fallbackSubcatchmentId);
+    const hydrograph =
+      evaluationResult.subcatchments.find((entry) => entry.id === targetId)?.after ?? evaluationResult.after;
+    const areaShare = Math.min(0.95, Math.max(0.05, summary.areaHa > 0 ? summary.areaHa / 1 : 0.1));
+    const fillTimeH = estimateFillTimeH(hydrograph, summary.volumeM3, areaShare);
+    if (fillTimeH !== null && (earliestFillH === null || fillTimeH < earliestFillH)) {
+      earliestFillH = fillTimeH;
+    }
+  }
+
+  const fillLabel = earliestFillH === null ? '–' : `${formatter.format(earliestFillH)} h`;
+  return `${t(locale, 'result.metric.fullAfter')} ${fillLabel} / ${t(locale, 'result.metric.peakAfter')} ${formatter.format(evaluationResult.after.tPeakH)} h`;
+}
+
+function ResultNote({
+  locale,
+  onOpenAssumptions,
+}: {
+  locale: Locale;
+  onOpenAssumptions: () => void;
+}): JSX.Element {
+  return (
+    <p className="result-note">
+      {t(locale, 'app.scenarioNote')}{' '}
+      <button type="button" className="link-button" onClick={onOpenAssumptions}>
+        {t(locale, 'result.assumptions')}
+      </button>
+    </p>
+  );
 }

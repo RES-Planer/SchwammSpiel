@@ -1,0 +1,96 @@
+{
+  "id": "demo",
+  "name": "Synthetisches Tal",
+  "mqLsKm2": 15.53,
+  "rainEvents": [
+    {
+      "id": "hq20-18h",
+      "name": "20-jährlich, 18 h",
+      "pMm": 69.9,
+      "durationH": 18,
+      "rainShape": "mittenbetont"
+    },
+    {
+      "id": "hq20-4h",
+      "name": "20-jährlich, 4 h",
+      "pMm": 43,
+      "durationH": 4,
+      "rainShape": "mittenbetont"
+    },
+    {
+      "id": "hq100-4h",
+      "name": "100-jährlich, 4 h",
+      "pMm": 62,
+      "durationH": 4,
+      "rainShape": "mittenbetont"
+    }
+  ],
+  "subcatchments": [
+    {
+      "id": "tgb-1",
+      "areaHa": 82,
+      "iaRatio": 0.11,
+      "prf": 484,
+      "tcFactor": 1,
+      "lagToOutletH": 0.15,
+      "reference": {
+        "cn": 71,
+        "tcH": 1.3
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-1-a",
+          "areaHa": 82,
+          "patches": [{ "id": "tgb-1-p1", "areaHa": 82, "cn": 71 }],
+          "flowPath": [{ "type": "pipe", "lengthM": 2800, "slope": 1, "k": 1, "rHydM": 1 }],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-2",
+      "areaHa": 74,
+      "iaRatio": 0.09,
+      "prf": 420,
+      "tcFactor": 1,
+      "lagToOutletH": 0.25,
+      "reference": {
+        "cn": 78,
+        "tcH": 1.1
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-2-a",
+          "areaHa": 74,
+          "patches": [{ "id": "tgb-2-p1", "areaHa": 74, "cn": 78 }],
+          "flowPath": [{ "type": "pipe", "lengthM": 2500, "slope": 1, "k": 1, "rHydM": 1 }],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    },
+    {
+      "id": "tgb-3",
+      "areaHa": 96,
+      "iaRatio": 0.08,
+      "prf": 350,
+      "tcFactor": 1,
+      "lagToOutletH": 0.05,
+      "reference": {
+        "cn": 83,
+        "tcH": 0.9
+      },
+      "measureAreas": [
+        {
+          "id": "tgb-3-a",
+          "areaHa": 96,
+          "patches": [{ "id": "tgb-3-p1", "areaHa": 96, "cn": 83 }],
+          "flowPath": [{ "type": "pipe", "lengthM": 2100, "slope": 1, "k": 1, "rHydM": 1 }],
+          "lagToParentH": 0,
+          "measures": []
+        }
+      ]
+    }
+  ]
+}

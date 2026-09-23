@@ -85,7 +85,9 @@ label,
 .measure-tool-grid,
 .scenario-actions,
 .draw-actions,
-.editor-grid {
+.editor-grid,
+.results-section,
+.animation-controls {
   display: grid;
   gap: 0.5rem;
 }
@@ -155,6 +157,11 @@ label,
 .warning-list {
   margin: 0;
   padding-left: 1rem;
+  color: #991b1b;
+}
+
+.warning-text {
+  margin: 0;
   color: #991b1b;
 }
 
@@ -238,6 +245,130 @@ label,
 }
 
 .details-list dd {
+  margin: 0;
+}
+
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin: 0;
+}
+
+.score-grid div,
+.assumption-card {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.score-grid dd,
+.score-grid dt {
+  margin: 0;
+}
+
+.star-rating {
+  display: flex;
+  gap: 0.2rem;
+  font-size: 1.5rem;
+}
+
+.star-on {
+  color: #f59e0b;
+}
+
+.star-off {
+  color: #cbd5e1;
+}
+
+.chart-host {
+  min-height: 8rem;
+}
+
+.hydrograph-chart-stack {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.result-note {
+  margin: 0;
+  color: #334155;
+}
+
+.link-button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #0369a1;
+  text-decoration: underline;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 0.45);
+}
+
+.modal-card {
+  display: grid;
+  gap: 1rem;
+  max-width: 52rem;
+  max-height: min(90vh, 50rem);
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 0.9rem;
+  background: #fff;
+}
+
+.modal-header,
+.assumption-headline {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.assumption-list,
+.limits-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.assumption-status {
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.assumption-status-thesis {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.assumption-status-derived {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.assumption-status-expert-estimate {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.assumption-card p,
+.assumption-source {
   margin: 0;
 }
 
