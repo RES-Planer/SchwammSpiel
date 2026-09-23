@@ -70,4 +70,26 @@ describe('scenario state helpers', () => {
 
     expect(decoded).toEqual(state);
   });
+
+  test('fails with compressed payload when DecompressionStream is unavailable', async () => {
+    const originalDecompressionStream = globalThis.DecompressionStream;
+    try {
+      // Simulate environments without stream-based gzip support.
+      Object.defineProperty(globalThis, 'DecompressionStream', {
+        configurable: true,
+        writable: true,
+        value: undefined,
+      });
+
+      await expect(decodeScenarioState('gz.AA')).rejects.toThrow(
+        'Cannot decode compressed payload in this environment',
+      );
+    } finally {
+      Object.defineProperty(globalThis, 'DecompressionStream', {
+        configurable: true,
+        writable: true,
+        value: originalDecompressionStream,
+      });
+    }
+  });
 });

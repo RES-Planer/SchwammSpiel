@@ -605,10 +605,17 @@ export function App() {
         if (parsed.version !== 1 || !Array.isArray(parsed.measures)) {
           throw new Error('invalid');
         }
+        if (parsed.catchmentId !== catchmentId) {
+          throw new Error('catchment-mismatch');
+        }
         setScenarioHistory(createHistoryState(parsed));
         setSelectedMeasureId(null);
         setShareMessage('');
-      } catch {
+      } catch (error) {
+        if (error instanceof Error && error.message === 'catchment-mismatch') {
+          setShareMessage(t(locale, 'scenario.file.catchmentMismatch'));
+          return;
+        }
         setShareMessage(t(locale, 'scenario.file.invalid'));
       }
     };
@@ -825,8 +832,11 @@ export function App() {
           )}
 
           {selectedMeasure ? (
-            <section className="measure-editor">
-              <h3>{t(locale, 'measure.editor.title')}</h3>
+            <section className="measure-editor" aria-labelledby="measure-editor-title">
+              <h3 id="measure-editor-title">
+                {t(locale, 'measure.editor.title')}: {t(locale, `measure.tool.${selectedMeasure.kind}`)} (
+                {selectedMeasure.id})
+              </h3>
               {renderMeasureEditor(locale, selectedMeasure, updateMeasure, applyStorageSuggestion)}
             </section>
           ) : null}
@@ -1155,10 +1165,10 @@ function defaultParams(kind: MeasureKind): Record<string, number | string> {
   switch (kind) {
     case 'landUseChange':
       return {
-        landUse: 'Acker',
+        landUse: 'arable',
         month: '4',
         mulchDirectSeed: 'no',
-        tillageDirection: 'contour_parallel',
+        tillageDirection: 'contour-parallel',
       };
     case 'storageWithPipe':
       return {
@@ -1223,10 +1233,14 @@ function renderMeasureEditor(
         <div className="editor-grid">
           <label>
             {t(locale, 'measure.param.landUse')}
-            <input
-              value={String(measure.params.landUse ?? '')}
-              onInput={(event) => setParam('landUse', (event.target as HTMLInputElement).value)}
-            />
+            <select
+              value={String(measure.params.landUse ?? 'arable')}
+              onChange={(event) => setParam('landUse', (event.target as HTMLSelectElement).value)}
+            >
+              <option value="forest">{t(locale, 'map.landuse.forest')}</option>
+              <option value="grassland">{t(locale, 'map.landuse.grassland')}</option>
+              <option value="arable">{t(locale, 'map.landuse.arable')}</option>
+            </select>
           </label>
           <label>
             {t(locale, 'measure.param.month')}
@@ -1251,10 +1265,10 @@ function renderMeasureEditor(
           <label>
             {t(locale, 'measure.param.tillageDirection')}
             <select
-              value={String(measure.params.tillageDirection ?? 'contour_parallel')}
+              value={String(measure.params.tillageDirection ?? 'contour-parallel')}
               onChange={(event) => setParam('tillageDirection', (event.target as HTMLSelectElement).value)}
             >
-              <option value="contour_parallel">{t(locale, 'measure.param.tillageDirection.contour')}</option>
+              <option value="contour-parallel">{t(locale, 'measure.param.tillageDirection.contour')}</option>
               <option value="downslope">{t(locale, 'measure.param.tillageDirection.downslope')}</option>
               <option value="terraced">{t(locale, 'measure.param.tillageDirection.terraced')}</option>
             </select>
@@ -1393,7 +1407,7 @@ function renderMeasureEditor(
             <input
               value={String(measure.params.elevationProfile ?? '')}
               onInput={(event) => setParam('elevationProfile', (event.target as HTMLInputElement).value)}
-              placeholder="430, 430.1, 430"
+              placeholder={t(locale, 'measure.param.elevationProfile.placeholder')}
             />
           </label>
         </div>
