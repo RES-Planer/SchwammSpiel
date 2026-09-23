@@ -104,7 +104,7 @@ export function App() {
   const [selectedSubcatchment, setSelectedSubcatchment] = useState<SubcatchmentDetails | null>(null);
   const [loadingState, setLoadingState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState('');
-  const [shareMessage, setShareMessage] = useState('');
+  const [shareMessageKey, setShareMessageKey] = useState('');
   const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
   const [draftCoordinates, setDraftCoordinates] = useState<LngLat[]>([]);
   const [selectedMeasureId, setSelectedMeasureId] = useState<string | null>(null);
@@ -145,7 +145,7 @@ export function App() {
           return;
         }
         setScenarioHistory(createHistoryState(initialState));
-        setShareMessage(t(locale, 'scenario.share.invalid'));
+        setShareMessageKey('scenario.share.invalid');
       });
 
     return () => {
@@ -567,7 +567,7 @@ export function App() {
     const pipeLengthM = readNumber(selectedMeasure.params.pipeLengthM, 12);
     const inflow = parseHydrographSeries(selectedMeasure.params.inflowSeriesM3s);
     if (inflow.length < 2) {
-      setShareMessage(t(locale, 'measure.storageSuggestion.todoSpec'));
+      setShareMessageKey('measure.storageSuggestion.todoSpec');
       return;
     }
     const inflowDtH = readNumber(selectedMeasure.params.inflowDtH, 0.25);
@@ -607,8 +607,8 @@ export function App() {
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const parsed = JSON.parse(String(reader.result)) as ScenarioState;
-        if (parsed.version !== 1 || !Array.isArray(parsed.measures)) {
+        const parsed = JSON.parse(String(reader.result));
+        if (!isValidScenarioState(parsed)) {
           throw new Error('invalid');
         }
         if (parsed.catchmentId !== catchmentId) {
@@ -616,34 +616,39 @@ export function App() {
         }
         setScenarioHistory(createHistoryState(parsed));
         setSelectedMeasureId(null);
-        setShareMessage('');
+        setShareMessageKey('');
       } catch (error) {
         if (error instanceof Error && error.message === 'catchment-mismatch') {
-          setShareMessage(t(locale, 'scenario.file.catchmentMismatch'));
+          setShareMessageKey('scenario.file.catchmentMismatch');
           return;
         }
-        setShareMessage(t(locale, 'scenario.file.invalid'));
+        setShareMessageKey('scenario.file.invalid');
       }
     };
     reader.readAsText(file);
   };
 
   const shareScenario = async () => {
-    const fragment = await toShareFragment(scenario);
-    const url = new URL(window.location.href);
-    url.hash = fragment;
-    window.history.replaceState(null, '', url.toString());
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(url.toString());
-        setShareMessage(t(locale, 'scenario.share.copied'));
-        return;
-      } catch {
-        setShareMessage(t(locale, 'scenario.share.updated'));
-        return;
+    try {
+      const fragment = await toShareFragment(scenario);
+      const url = new URL(window.location.href);
+      url.hash = fragment;
+      window.history.replaceState(null, '', url.toString());
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(url.toString());
+          setShareMessageKey('scenario.share.copied');
+          return;
+        } catch {
+          setShareMessageKey('scenario.share.updated');
+          return;
+        }
       }
+      setShareMessageKey('scenario.share.updated');
+    } catch {
+      setShareMessageKey('scenario.share.invalid');
+      return;
     }
-    setShareMessage(t(locale, 'scenario.share.updated'));
   };
 
   const draftLengthM = geodesicLengthM(draftCoordinates);
@@ -748,7 +753,7 @@ export function App() {
                 input.value = '';
               }}
             />
-            {shareMessage ? <p className="hint-text">{shareMessage}</p> : null}
+            {shareMessageKey ? <p className="hint-text">{t(locale, shareMessageKey)}</p> : null}
           </div>
 
           <h2>{t(locale, 'map.layers')}</h2>
@@ -1187,6 +1192,89 @@ function parseHydrographSeries(value: string | number | boolean | undefined): nu
     .split(',')
     .map((entry) => Number(entry.trim()))
     .filter((entry) => Number.isFinite(entry) && entry >= 0);
+}
+
+function isValidScenarioState(value: unknown): value is ScenarioState {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as {
+    version?: unknown;
+    catchmentId?: unknown;
+    measures?: unknown;
+  };
+  if (candidate.version !== 1 || typeof candidate.catchmentId !== 'string') {
+    return false;
+  }
+  if (!Array.isArray(candidate.measures)) {
+    return false;
+  }
+
+  return candidate.measures.every(isValidMeasureState);
+}
+
+function isValidMeasureState(value: unknown): value is MeasureState {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const candidate = value as {
+    id?: unknown;
+    kind?: unknown;
+    enabled?: unknown;
+    params?: unknown;
+    geometry?: unknown;
+  };
+  if (
+    typeof candidate.id !== 'string' ||
+    !toolOrder.some((tool) => tool.kind === candidate.kind) ||
+    typeof candidate.enabled !== 'boolean'
+  ) {
+    return false;
+  }
+
+  if (!candidate.params || typeof candidate.params !== 'object' || Array.isArray(candidate.params)) {
+    return false;
+  }
+  const params = candidate.params as Record<string, unknown>;
+  if (
+    !Object.values(params).every(
+      (entry) =>
+        typeof entry === 'string' || typeof entry === 'number' || typeof entry === 'boolean',
+    )
+  ) {
+    return false;
+  }
+
+  return isValidMeasureGeometry(candidate.geometry);
+}
+
+function isValidMeasureGeometry(value: unknown): value is MeasureState['geometry'] {
+  if (value === null) {
+    return true;
+  }
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const geometry = value as { type?: unknown; coordinates?: unknown };
+  if (geometry.type === 'LineString' && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates.every(isLngLatTuple);
+  }
+  if (geometry.type === 'Polygon' && Array.isArray(geometry.coordinates)) {
+    return geometry.coordinates.every(isLngLatTuple);
+  }
+  return false;
+}
+
+function isLngLatTuple(value: unknown): value is [number, number] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    typeof value[0] === 'number' &&
+    Number.isFinite(value[0]) &&
+    typeof value[1] === 'number' &&
+    Number.isFinite(value[1])
+  );
 }
 
 function defaultParams(kind: MeasureKind): Record<string, number | string> {
