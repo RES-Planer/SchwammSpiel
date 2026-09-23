@@ -14,7 +14,7 @@ describe('manifest layer builders', () => {
       visibleByDefault: true,
     };
 
-    expect(buildManifestSource(layer, '/base/', 'demo')).toEqual({
+    expect(buildManifestSource(layer, '/base/', 'demo', 'en')).toEqual({
       type: 'raster',
       tiles: ['https://tiles.example/{z}/{x}/{y}.png'],
       tileSize: 256,
@@ -43,11 +43,11 @@ describe('manifest layer builders', () => {
       ],
     };
 
-    expect(buildManifestSource(geojsonLayer, '/SchwammSpiel/', 'demo')).toEqual({
+    expect(buildManifestSource(geojsonLayer, '/SchwammSpiel/', 'demo', 'de')).toEqual({
       type: 'geojson',
       data: '/SchwammSpiel/data/demo/subcatchments.geojson',
     });
-    expect(buildManifestSource(imageLayer, '/SchwammSpiel/', 'demo')).toEqual({
+    expect(buildManifestSource(imageLayer, '/SchwammSpiel/', 'demo', 'de')).toEqual({
       type: 'image',
       url: '/SchwammSpiel/data/demo/hillshade.png',
       coordinates: imageLayer.coordinates,
@@ -68,7 +68,7 @@ describe('manifest layer builders', () => {
       },
     };
 
-    expect(buildManifestLayer(layer, 'catchment-source-flow-paths')).toEqual({
+    expect(buildManifestLayer(layer, 'catchment-layer-flow-paths', 'catchment-source-flow-paths')).toEqual({
       id: 'catchment-layer-flow-paths',
       type: 'line',
       source: 'catchment-source-flow-paths',
@@ -76,6 +76,27 @@ describe('manifest layer builders', () => {
       layout: { visibility: 'none', 'line-cap': 'round' },
       minzoom: undefined,
       maxzoom: undefined,
+    });
+  });
+
+  test('keeps localized raster attributions in generated map sources', () => {
+    const layer: LayerManifest = {
+      id: 'basemap-openfreemap',
+      name: { de: 'Basiskarte OpenFreeMap' },
+      type: 'raster',
+      layerType: 'raster',
+      tiles: ['https://tiles.example/{z}/{x}/{y}.png'],
+      attribution: {
+        de: 'OpenFreeMap, OpenMapTiles, OpenStreetMap-Mitwirkende (ODbL)',
+        en: 'OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL)',
+      },
+    };
+
+    expect(buildManifestSource(layer, '/', 'demo', 'en')).toEqual({
+      type: 'raster',
+      tiles: ['https://tiles.example/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: 'OpenFreeMap, OpenMapTiles, OpenStreetMap contributors (ODbL)',
     });
   });
 });

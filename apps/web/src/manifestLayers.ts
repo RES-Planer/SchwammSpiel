@@ -1,16 +1,21 @@
 import type * as maplibregl from 'maplibre-gl';
 
-import { buildDataUrl, type LayerManifest } from './mapData';
+import type { Locale } from './i18n';
+import { buildDataUrl, getLocalizedText, type LayerManifest } from './mapData';
 
 export function buildManifestSource(
   layer: LayerManifest,
   baseUrl: string,
   catchmentId: string,
+  locale: Locale,
 ): maplibregl.SourceSpecification {
+  const attribution = getLocalizedText(layer.attribution, locale, '').trim() || undefined;
+  const attributionSpec = attribution ? { attribution } : {};
   if (layer.type === 'geojson') {
     return {
       type: 'geojson',
       data: buildDataUrl(baseUrl, catchmentId, layer.path),
+      ...attributionSpec,
     };
   }
 
@@ -19,6 +24,7 @@ export function buildManifestSource(
       type: 'image',
       url: buildDataUrl(baseUrl, catchmentId, layer.path),
       coordinates: layer.coordinates,
+      ...attributionSpec,
     };
   }
 
@@ -26,15 +32,17 @@ export function buildManifestSource(
     type: 'raster',
     tiles: layer.tiles,
     tileSize: layer.tileSize ?? 256,
+    ...attributionSpec,
   };
 }
 
 export function buildManifestLayer(
   layer: LayerManifest,
+  layerId: string,
   sourceId: string,
 ): maplibregl.AddLayerObject {
   return {
-    id: `catchment-layer-${layer.id}`,
+    id: layerId,
     type: layer.layerType,
     source: sourceId,
     paint: layer.style?.paint as Record<string, unknown> | undefined,

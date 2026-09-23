@@ -451,8 +451,8 @@ export function App() {
     for (const layer of manifest.layers) {
       const sourceId = sourceIdFor(layer.id);
       const layerId = layerIdFor(layer.id);
-      map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId));
-      map.addLayer(buildManifestLayer(layer, sourceId));
+      map.addSource(sourceId, buildManifestSource(layer, import.meta.env.BASE_URL, catchmentId, locale));
+      map.addLayer(buildManifestLayer(layer, layerId, sourceId));
 
       addedLayerIds.push(layerId);
       addedSourceIds.push(sourceId);
