@@ -26,7 +26,7 @@
       "type": "raster",
       "layerType": "raster",
       "tiles": [
-        "https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web/default/WEBMERCATOR/{z}/{y}/{x}.png"
+        "https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web/default/WEBMERCATOR/{z}/{x}/{y}.png"
       ],
       "tileSize": 256,
       "visibleByDefault": true,
@@ -46,7 +46,7 @@
       ],
       "tileSize": 256,
       "visibleByDefault": false,
-      "attribution": "OpenFreeMap"
+      "attribution": "OpenFreeMap, OpenMapTiles, OpenStreetMap-Mitwirkende (ODbL)"
     },
     {
       "id": "hillshade",
