@@ -118,6 +118,7 @@ describe('evaluateScenario', () => {
 
     const result = evaluateScenario(catchment, 'hq20-18h', false);
     const totalAreaHa = catchment.subcatchments.reduce((sum, subcatchment) => sum + subcatchment.areaHa, 0);
+    const byId = new Map(catchment.subcatchments.map((subcatchment) => [subcatchment.id, subcatchment]));
 
     expect(result.after.qM3s).toEqual(result.before.qM3s);
     expect(totalAreaHa).toBeGreaterThanOrEqual(585);
@@ -132,7 +133,25 @@ describe('evaluateScenario', () => {
         return subcatchment.lagToOutletH >= 0 && subcatchment.lagToOutletH <= 3;
       }),
     ).toBe(true);
-    expect(result.qMaxBeforeM3s).toBeGreaterThanOrEqual(4.41);
-    expect(result.qMaxBeforeM3s).toBeLessThanOrEqual(4.51);
+    expect(byId.get('tgb-1')?.lagToOutletH).toBe(0);
+    expect(byId.get('tgb-6')?.lagToOutletH).toBe(0);
+    expect(byId.get('tgb-2')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-3')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-4')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-5')?.lagToOutletH).toBe(0.25);
+    expect(byId.get('tgb-7')?.lagToOutletH).toBe(0.25);
+    expect('tcH' in (byId.get('tgb-1')?.reference ?? {})).toBe(true);
+    expect('tcH' in (byId.get('tgb-2')?.reference ?? {})).toBe(true);
+    expect('tcH' in (byId.get('tgb-6')?.reference ?? {})).toBe(true);
+    if ('tcH' in (byId.get('tgb-1')?.reference ?? {})) {
+      expect(byId.get('tgb-1')?.reference.tcH).toBeCloseTo(1.49, 2);
+    }
+    if ('tcH' in (byId.get('tgb-2')?.reference ?? {})) {
+      expect(byId.get('tgb-2')?.reference.tcH).toBeCloseTo(3.36, 2);
+    }
+    if ('tcH' in (byId.get('tgb-6')?.reference ?? {})) {
+      expect(byId.get('tgb-6')?.reference.tcH).toBeCloseTo(1.88, 2);
+    }
+    expect(result.qMaxBeforeM3s).toBeCloseTo(4.4508, 2);
   });
 });

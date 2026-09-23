@@ -12,11 +12,13 @@ type CalibrationSeed = {
   ia_ratio: number;
   prf: number;
   target_q_max_m3s: number;
+  lag_fixed_to_zero?: boolean;
 };
 
 type CalibrationSeeds = {
   rain_event: {
     id: string;
+    name: string;
     p_mm: number;
     duration_h: number;
     rain_shape: 'mittenbetont' | 'block';
@@ -30,7 +32,6 @@ type CalibrationSeeds = {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const seedsPath = resolve(root, 'data/goldbach_seeds.json');
 const outputPath = resolve(root, 'data/goldbach/catchment.json');
-const lagFixedAtZero = new Set(['tgb-1', 'tgb-6']);
 
 function roundToStep(value: number, step: number): number {
   return Number((Math.round(value / step) * step).toFixed(2));
@@ -92,7 +93,7 @@ function buildCatchment(
     rainEvents: [
       {
         id: seeds.rain_event.id,
-        name: 'HQ20 18h',
+        name: seeds.rain_event.name,
         pMm: seeds.rain_event.p_mm,
         durationH: seeds.rain_event.duration_h,
         rainShape: seeds.rain_event.rain_shape,
@@ -104,7 +105,7 @@ function buildCatchment(
         throw new Error(`Missing calibrated tcH for ${seed.id}`);
       }
 
-      const lagToOutletH = lagFixedAtZero.has(seed.id) ? 0 : lagH;
+      const lagToOutletH = seed.lag_fixed_to_zero ? 0 : lagH;
       const lagValue = roundLag ? roundToStep(lagToOutletH, 0.05) : lagToOutletH;
 
       return {

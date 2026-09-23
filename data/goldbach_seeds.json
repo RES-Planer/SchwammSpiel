@@ -1,15 +1,39 @@
 {
   "source": "Masterarbeit Gehr (THD 2025): Flaechen Tab. 8, CN TGB 1/2/5/6 Tab. 13 (Ist-Zustand), Ia/S und PRF aus den uTGB-Blaettern in Anhang B8, Zielscheitel HQ20 D=18h Tab. 14; CN fuer TGB 3/4/7 aus Anhang B7 (Landnutzungsanteile) mit Tab-4.1-Werten fuer Bodengruppe C geschaetzt (Pruefung an TGB 1/2/6: Abweichung <= 1.5 CN-Punkte)",
-  "rain_event": { "id": "hq20-18h", "p_mm": 69.9, "duration_h": 18, "rain_shape": "mittenbetont" },
+  "rain_event": {
+    "id": "hq20-18h",
+    "name": "HQ20 18h",
+    "p_mm": 69.9,
+    "duration_h": 18,
+    "rain_shape": "mittenbetont"
+  },
   "mq_l_s_km2": 15.53,
   "target_catchment_q_max_m3s": 4.46,
   "subcatchments": [
-    { "id": "tgb-1", "area_ha": 81.5, "cn": 75.25, "cn_status": "thesis", "ia_ratio": 0.165, "prf": 484, "target_q_max_m3s": 0.91 },
+    {
+      "id": "tgb-1",
+      "area_ha": 81.5,
+      "cn": 75.25,
+      "cn_status": "thesis",
+      "ia_ratio": 0.165,
+      "prf": 484,
+      "target_q_max_m3s": 0.91,
+      "lag_fixed_to_zero": true
+    },
     { "id": "tgb-2", "area_ha": 132.7, "cn": 75.59, "cn_status": "thesis", "ia_ratio": 0.07, "prf": 250, "target_q_max_m3s": 0.93 },
     { "id": "tgb-3", "area_ha": 111.7, "cn": 73.1, "cn_status": "estimated-from-B7", "ia_ratio": 0.085, "prf": 250, "target_q_max_m3s": 0.64 },
     { "id": "tgb-4", "area_ha": 77.2, "cn": 74.4, "cn_status": "estimated-from-B7", "ia_ratio": 0.08, "prf": 250, "target_q_max_m3s": 0.50 },
     { "id": "tgb-5", "area_ha": 61.4, "cn": 73.82, "cn_status": "thesis", "ia_ratio": 0.07, "prf": 250, "target_q_max_m3s": 0.42 },
-    { "id": "tgb-6", "area_ha": 90.0, "cn": 80.58, "cn_status": "thesis", "ia_ratio": 0.165, "prf": 350, "target_q_max_m3s": 1.12 },
+    {
+      "id": "tgb-6",
+      "area_ha": 90.0,
+      "cn": 80.58,
+      "cn_status": "thesis",
+      "ia_ratio": 0.165,
+      "prf": 350,
+      "target_q_max_m3s": 1.12,
+      "lag_fixed_to_zero": true
+    },
     { "id": "tgb-7", "area_ha": 31.9, "cn": 73.6, "cn_status": "estimated-from-B7", "ia_ratio": 0.085, "prf": 250, "target_q_max_m3s": 0.22, "note": "keine Massnahmenflaeche in der Arbeit; Ia/S und PRF wie TGB 3 angenommen" }
   ],
   "expected_tc_h_after_calibration": { "tgb-1": 1.5, "tgb-2": 3.4, "tgb-3": 3.6, "tgb-4": 3.4, "tgb-5": 3.1, "tgb-6": 1.9, "tgb-7": 2.8 },
