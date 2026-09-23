@@ -42,7 +42,8 @@
           "properties": {
             "cn": { "type": "number", "minimum": 0, "maximum": 100 },
             "tcH": { "type": "number", "exclusiveMinimum": 0 },
-            "cn_status": { "type": "string" },
+            "cn_status": { "enum": ["thesis", "estimated-from-B7"] },
+            "cn_warning": { "type": "string" },
             "todo": { "type": "string" }
           }
         },

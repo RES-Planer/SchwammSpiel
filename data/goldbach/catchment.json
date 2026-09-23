@@ -97,7 +97,7 @@
         "cn": 73.1,
         "tcH": 3.642988327047899,
         "cn_status": "estimated-from-B7",
-        "todo": "WARN(DATA): CN estimated-from-B7"
+        "cn_warning": "CN estimated-from-B7"
       },
       "measureAreas": [
         {
@@ -135,7 +135,7 @@
         "cn": 74.4,
         "tcH": 3.3675308810710445,
         "cn_status": "estimated-from-B7",
-        "todo": "WARN(DATA): CN estimated-from-B7"
+        "cn_warning": "CN estimated-from-B7"
       },
       "measureAreas": [
         {
@@ -247,7 +247,7 @@
         "cn": 73.6,
         "tcH": 2.824890367416233,
         "cn_status": "estimated-from-B7",
-        "todo": "WARN(DATA): CN estimated-from-B7"
+        "cn_warning": "CN estimated-from-B7"
       },
       "measureAreas": [
         {
