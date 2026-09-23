@@ -33,7 +33,7 @@ const outputPath = resolve(root, 'data/goldbach/catchment.json');
 const lagFixedAtZero = new Set(['tgb-1', 'tgb-6']);
 
 function roundToStep(value: number, step: number): number {
-  return Math.round(value / step) * step;
+  return Number((Math.round(value / step) * step).toFixed(2));
 }
 
 function readSeeds(): CalibrationSeeds {
