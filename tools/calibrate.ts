@@ -120,6 +120,9 @@ function buildCatchment(
           cn: seed.cn,
           tcH,
           cn_status: seed.cn_status,
+          ...(seed.cn_status === 'estimated-from-B7'
+            ? { todo: 'WARN(DATA): CN estimated-from-B7' }
+            : {}),
         },
         measureAreas: [
           {
