@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, test } from 'vitest';
 
-const forbiddenRasterDomain = 'tile.openstreetmap.org';
+const forbiddenRasterDomain = ['tile', 'openstreetmap.org'].join('.');
 const manifestDirectory = new URL('../public/data', import.meta.url);
 const demoManifestPath = new URL('../public/data/demo/manifest.json', import.meta.url);
 const sourceDirectory = new URL('.', import.meta.url);
