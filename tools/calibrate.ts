@@ -32,6 +32,7 @@ type CalibrationSeeds = {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const seedsPath = resolve(root, 'data/goldbach_seeds.json');
 const outputPath = resolve(root, 'data/goldbach/catchment.json');
+const EXPECTED_TC_TOLERANCE_FRACTION = 0.1;
 
 function roundToStep(value: number, step: number): number {
   return Number((Math.round(value / step) * step).toFixed(2));
@@ -183,7 +184,7 @@ function assertExpectedTcRange(seeds: CalibrationSeeds, tcById: Map<string, numb
       throw new Error(`Missing calibrated tcH for expected entry ${id}`);
     }
     const relativeDeviation = Math.abs(calibrated - expectedTcH) / expectedTcH;
-    if (relativeDeviation > 0.1) {
+    if (relativeDeviation > EXPECTED_TC_TOLERANCE_FRACTION) {
       throw new Error(
         `tcH for ${id} out of expected ±10% range (got ${calibrated.toFixed(3)}, expected ${expectedTcH})`,
       );
