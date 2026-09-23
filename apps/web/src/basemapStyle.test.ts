@@ -55,6 +55,7 @@ describe('basemap style helpers', () => {
     map.emit('style.load');
 
     expect(onStyleReady).toHaveBeenCalledTimes(1);
+    expect(onStyleReady).toHaveBeenCalledWith(requestedStyleUrl);
     expect(map.listeners.error).toHaveLength(0);
 
     cleanup();
@@ -76,6 +77,7 @@ describe('basemap style helpers', () => {
 
     map.emit('style.load');
     expect(onStyleReady).toHaveBeenCalledTimes(1);
+    expect(onStyleReady).toHaveBeenCalledWith('__default__');
   });
 
   test('recognizes only active style load errors for fallback handling', () => {

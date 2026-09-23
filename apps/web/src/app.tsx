@@ -471,10 +471,8 @@ export function App() {
     };
 
     if (activeBaseStyleRef.current !== nextBaseStyleKey) {
-      activeBaseStyleRef.current = nextBaseStyleKey;
-
-      return applyBaseStyle(map, activeBaseStyleUrl, () => {
-        activeBaseStyleRef.current = activeBaseStyleUrl ?? '__default__';
+      return applyBaseStyle(map, activeBaseStyleUrl, (activeStyleKey) => {
+        activeBaseStyleRef.current = activeStyleKey;
         applyManifestLayers();
       });
     }

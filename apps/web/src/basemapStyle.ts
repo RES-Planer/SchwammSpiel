@@ -58,13 +58,15 @@ export function isActiveStyleLoadError(event: unknown, requestedStyleUrl: string
 export function applyBaseStyle(
   map: BaseStyleMap,
   requestedStyleUrl: string | null,
-  onStyleReady: () => void,
+  onStyleReady: (activeStyleKey: string) => void,
 ): () => void {
+  const requestedStyleKey = requestedStyleUrl ?? '__default__';
+
   const handleStyleLoad = () => {
     if (requestedStyleUrl) {
       map.off('error', handleStyleError);
     }
-    onStyleReady();
+    onStyleReady(requestedStyleKey);
   };
 
   const handleStyleError = (event?: unknown) => {
@@ -74,7 +76,7 @@ export function applyBaseStyle(
 
     map.off('style.load', handleStyleLoad);
     map.off('error', handleStyleError);
-    map.once('style.load', onStyleReady);
+    map.once('style.load', () => onStyleReady('__default__'));
     map.setStyle(defaultMapStyle);
   };
 
