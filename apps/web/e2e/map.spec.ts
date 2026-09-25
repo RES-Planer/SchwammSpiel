@@ -1,17 +1,6 @@
-import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
-const blankPng = readFileSync(new URL('../public/data/demo/hillshade.png', import.meta.url));
-
 test('renders production manifest layers without map load errors', async ({ page }) => {
-  await page.route('https://sgx.geodatenzentrum.de/**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'image/png',
-      body: blankPng,
-    });
-  });
-
   await page.goto('/SchwammSpiel/', { waitUntil: 'domcontentloaded' });
 
   await page.waitForFunction(() => {
