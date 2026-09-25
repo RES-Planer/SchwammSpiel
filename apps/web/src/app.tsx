@@ -22,6 +22,7 @@ import {
 import { geodesicLengthM, geodesicPolygonAreaM2, type LngLat } from './geodesy';
 import { HydrographChart } from './HydrographChart';
 import { locales, type Locale, t } from './i18n';
+import { resolveSourceIdFromMapError } from './layerLoadErrors';
 import { MeasureCard } from './MeasureCard';
 import { defaultParams, MeasureForm } from './MeasureForm';
 import { extractCnZones, inferCnZoneDefaults } from './cnZones';
@@ -133,6 +134,11 @@ type FeatureCollection<TFeature> = {
   features: TFeature[];
 };
 
+type MapTestWindow = Window & {
+  __map?: maplibregl.Map;
+  __mapErrors?: Array<{ message: string; sourceId?: string }>;
+};
+
 type WorkerRequest = {
   id: number;
   catchment: Catchment;
@@ -153,6 +159,8 @@ const toolOrder: DrawMode[] = [
   { kind: 'flowPathChange', geometryType: 'LineString' },
 ];
 
+const shouldExposeMapForTesting = import.meta.env.DEV || import.meta.env.VITE_E2E === 'true';
+
 export function App() {
   const [locale, setLocale] = useState<Locale>('de');
   const [mapReady, setMapReady] = useState(false);
@@ -168,6 +176,7 @@ export function App() {
   const [loadError, setLoadError] = useState('');
   const [shareMessageKey, setShareMessageKey] = useState('');
   const [resultError, setResultError] = useState('');
+  const [layerLoadFailures, setLayerLoadFailures] = useState<Record<string, true>>({});
   const [evaluationState, setEvaluationState] = useState<'idle' | 'running' | 'ready' | 'error'>('idle');
   const [evaluationResult, setEvaluationResult] = useState<ScenarioEvaluationResult | null>(null);
   const [selectedRainEventId, setSelectedRainEventId] = useState('');
@@ -192,6 +201,7 @@ export function App() {
   const addedLayerIdsRef = useRef<string[]>([]);
   const addedSourceIdsRef = useRef<string[]>([]);
   const activeBaseStyleRef = useRef<string | null>(null);
+  const manifestRef = useRef<CatchmentManifest | null>(null);
   const catchmentId = useMemo(() => resolveCatchmentId(window.location.search), []);
   const [scenarioHistory, setScenarioHistory] = useState<HistoryState<ScenarioState>>(() =>
     createHistoryState(createInitialScenarioState(catchmentId)),
@@ -206,6 +216,19 @@ export function App() {
     () => findVisibleVectorStyleLayer(manifest?.layers ?? [], layerVisibility)?.url ?? null,
     [layerVisibility, manifest],
   );
+  const failedLayerNames = useMemo(() => {
+    if (!manifest) {
+      return [];
+    }
+
+    return manifest.layers
+      .filter((layer) => layerLoadFailures[layer.id])
+      .map((layer) => getLocalizedText(layer.name, locale, layer.id));
+  }, [layerLoadFailures, locale, manifest]);
+
+  useEffect(() => {
+    manifestRef.current = manifest;
+  }, [manifest]);
 
   useEffect(() => {
     let cancelled = false;
@@ -247,10 +270,58 @@ export function App() {
       zoom: 13,
       attributionControl: false,
     });
+    const testWindow = window as MapTestWindow;
 
     const handleLoad = () => setMapReady(true);
+    const handleError = (event: maplibregl.ErrorEvent) => {
+      const sourceId = resolveSourceIdFromMapError(event);
+      const failedLayer =
+        sourceId === undefined
+          ? undefined
+          : manifestRef.current?.layers.find((layer) => isSourceLayer(layer) && sourceIdFor(layer.id) === sourceId);
+
+      if (shouldExposeMapForTesting && failedLayer) {
+        testWindow.__mapErrors ??= [];
+        testWindow.__mapErrors.push({
+          message: event.error.message,
+          sourceId,
+        });
+      }
+      if (!failedLayer) {
+        return;
+      }
+
+      const failedLayerId = layerIdFor(failedLayer.id);
+      const failedSourceId = sourceIdFor(failedLayer.id);
+      removeManifestLayer(map, failedLayerId, failedSourceId);
+      addedLayerIdsRef.current = addedLayerIdsRef.current.filter((layerId) => layerId !== failedLayerId);
+      addedSourceIdsRef.current = addedSourceIdsRef.current.filter(
+        (currentSourceId) => currentSourceId !== failedSourceId,
+      );
+      setLayerVisibility((current) =>
+        current[failedLayer.id] === false
+          ? current
+          : {
+              ...current,
+              [failedLayer.id]: false,
+            },
+      );
+      setLayerLoadFailures((current) =>
+        current[failedLayer.id]
+          ? current
+          : {
+              ...current,
+              [failedLayer.id]: true,
+            },
+      );
+    };
     map.on('load', handleLoad);
+    map.on('error', handleError);
     mapRef.current = map;
+    if (shouldExposeMapForTesting) {
+      testWindow.__map = map;
+      testWindow.__mapErrors = [];
+    }
 
     const scaleControl = new maplibregl.ScaleControl({ maxWidth: 140, unit: 'metric' });
     map.addControl(scaleControl, 'bottom-left');
@@ -258,9 +329,14 @@ export function App() {
 
     return () => {
       map.off('load', handleLoad);
+      map.off('error', handleError);
       mapRef.current = null;
       scaleControlRef.current = null;
       attributionControlRef.current = null;
+      if (shouldExposeMapForTesting) {
+        delete testWindow.__map;
+        delete testWindow.__mapErrors;
+      }
       map.remove();
     };
   }, []);
@@ -337,6 +413,7 @@ export function App() {
     setEvaluationResult(null);
     setEvaluationState('idle');
     setResultError('');
+    setLayerLoadFailures({});
 
     void fetch(buildManifestUrl(import.meta.env.BASE_URL, catchmentId))
       .then(async (response) => {
@@ -546,7 +623,7 @@ export function App() {
       const addedSourceIds: string[] = [];
 
       for (const layer of manifest.layers) {
-        if (!isSourceLayer(layer)) {
+        if (!isSourceLayer(layer) || layerLoadFailures[layer.id]) {
           continue;
         }
 
@@ -581,7 +658,7 @@ export function App() {
       addedLayerIdsRef.current = [];
       addedSourceIdsRef.current = [];
     };
-  }, [activeBaseStyleUrl, catchmentId, locale, manifest, mapReady]);
+  }, [activeBaseStyleUrl, catchmentId, layerLoadFailures, locale, manifest, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1420,9 +1497,13 @@ export function App() {
           <fieldset className="layer-list">
             <legend className="sr-only">{t(locale, 'map.layers')}</legend>
             {manifest?.layers.map((layer) => (
-              <label key={layer.id} className="layer-toggle">
+              <label
+                key={layer.id}
+                className={`layer-toggle${layerLoadFailures[layer.id] ? ' is-disabled' : ''}`}
+              >
                 <input
                   type="checkbox"
+                  disabled={Boolean(layerLoadFailures[layer.id])}
                   checked={layerVisibility[layer.id] ?? layer.visibleByDefault ?? true}
                   onChange={() =>
                     setLayerVisibility((current) => ({
@@ -1435,6 +1516,11 @@ export function App() {
               </label>
             ))}
           </fieldset>
+          {failedLayerNames.length > 0 ? (
+            <p className="warning-text">
+              {t(locale, 'map.layerLoadError')} ({failedLayerNames.join(', ')})
+            </p>
+          ) : null}
 
           <h2>{t(locale, 'map.legend')}</h2>
           {visibleLayers.length > 0 ? (
@@ -1743,14 +1829,23 @@ function layerIdFor(layerId: string): string {
   return `catchment-layer-${layerId}`;
 }
 
+function removeManifestLayer(map: maplibregl.Map, layerId: string, sourceId: string): void {
+  if (map.getLayer(layerId)) {
+    map.removeLayer(layerId);
+  }
+  if (map.getSource(sourceId)) {
+    map.removeSource(sourceId);
+  }
+}
+
 function removeManifestLayers(map: maplibregl.Map, layerIds: string[], sourceIds: string[]): void {
   for (const layerId of layerIds) {
-    if (map.getLayer(layerId)) {
+    if (layerId && map.getLayer(layerId)) {
       map.removeLayer(layerId);
     }
   }
   for (const sourceId of sourceIds) {
-    if (map.getSource(sourceId)) {
+    if (sourceId && map.getSource(sourceId)) {
       map.removeSource(sourceId);
     }
   }

@@ -29,21 +29,17 @@ function collectFiles(directoryPath: string, predicate: (path: string) => boolea
 }
 
 describe('basemap source configuration', () => {
-  test('uses the corrected external basemap definitions in the demo manifest', () => {
+  test('keeps the demo manifest self-contained for offline smoke tests', () => {
     const manifest = JSON.parse(readFileSync(demoManifestPath, 'utf8')) as { layers: ManifestLayer[] };
-    const topPlusOpen = manifest.layers.find((layer) => layer.id === 'basemap-topplusopen');
-    const openFreeMap = manifest.layers.find((layer) => layer.id === 'basemap-openfreemap');
+    const externalBasemapLayers = manifest.layers.filter(
+      (layer) => layer.type === 'vector-style' || layer.tiles?.some((tile) => tile.startsWith('http')),
+    );
+    const hillshade = manifest.layers.find((layer) => layer.id === 'hillshade');
 
-    expect(topPlusOpen).toMatchObject({
-      type: 'raster',
-      tiles: ['https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web_grau/default/WEBMERCATOR/{z}/{y}/{x}.png'],
-      maxzoom: 18,
-      attribution: '© GeoBasis-DE / BKG (2026), Datenlizenz Deutschland – Namensnennung – Version 2.0',
-    });
-    expect(openFreeMap).toMatchObject({
-      type: 'vector-style',
-      url: 'https://tiles.openfreemap.org/styles/liberty',
-      attribution: 'OpenFreeMap © OpenMapTiles, Daten © OpenStreetMap-Mitwirkende',
+    expect(externalBasemapLayers).toEqual([]);
+    expect(hillshade).toMatchObject({
+      type: 'image',
+      path: 'hillshade.png',
     });
   });
 

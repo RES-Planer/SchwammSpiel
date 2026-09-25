@@ -12,6 +12,7 @@
   "map.legend.empty": "Není zobrazena žádná vrstva.",
   "map.loading": "Načítají se data povodí …",
   "map.loadError": "Data povodí se nepodařilo načíst.",
+  "map.layerLoadError": "Vrstva se nepodařila načíst.",
   "map.details.title": "Dílčí povodí",
   "map.details.empty": "Klepněte nebo klikněte na dílčí povodí pro podrobnosti.",
   "map.details.name": "Název",

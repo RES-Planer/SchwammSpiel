@@ -12,6 +12,7 @@
   "map.legend.empty": "Keine Ebene eingeblendet.",
   "map.loading": "Gebietsdaten werden geladen …",
   "map.loadError": "Gebietsdaten konnten nicht geladen werden.",
+  "map.layerLoadError": "Ebene konnte nicht geladen werden.",
   "map.details.title": "Teilgebiet",
   "map.details.empty": "Tippen oder klicken Sie auf ein Teilgebiet, um Details zu sehen.",
   "map.details.name": "Name",

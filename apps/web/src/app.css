@@ -78,6 +78,10 @@ label,
   font-weight: 400;
 }
 
+.layer-toggle.is-disabled {
+  opacity: 0.6;
+}
+
 .measures-panel {
   align-content: start;
 }
