@@ -4,8 +4,8 @@ test('renders production manifest layers without map load errors', async ({ page
   await page.goto('/SchwammSpiel/', { waitUntil: 'domcontentloaded' });
 
   await page.waitForFunction(() => {
-    const map = (window as Window & { __map?: { getLayer(id: string): unknown } }).__map;
-    return Boolean(map?.getLayer('catchment-layer-subcatchments'));
+    const map = (window as Window & { __map?: unknown }).__map;
+    return Boolean(map);
   });
 
   const state = await page.evaluate(async () => {
@@ -22,11 +22,11 @@ test('renders production manifest layers without map load errors', async ({ page
 
     const manifest = (await fetch('/SchwammSpiel/data/demo/manifest.json').then(async (response) => {
       return (await response.json()) as {
-        layers: Array<{ id: string; type: string }>;
+        layers: Array<{ id: string; layerType?: string }>;
       };
-    })) as { layers: Array<{ id: string; type: string }> };
+    })) as { layers: Array<{ id: string; layerType?: string }> };
     const manifestLayerIds = manifest.layers
-      .filter((layer) => layer.type !== 'vector-style')
+      .filter((layer) => typeof layer.layerType === 'string')
       .map((layer) => layer.id);
     const missingLayerIds = manifestLayerIds.filter((layerId) => !map.getLayer(`catchment-layer-${layerId}`));
     const subcatchmentGeoJson = (await fetch('/SchwammSpiel/data/demo/subcatchments.geojson').then(async (response) => {

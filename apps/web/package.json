@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint \"src/**/*.ts\" \"src/**/*.tsx\" vite.config.ts",
-    "test": "vitest run --passWithNoTests --dir src",
+    "test": "vitest run --passWithNoTests",
     "preview": "vite preview"
   },
   "dependencies": {

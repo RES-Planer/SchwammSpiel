@@ -1675,13 +1675,15 @@ function removeManifestLayer(map: maplibregl.Map, layerId: string, sourceId: str
 }
 
 function removeManifestLayers(map: maplibregl.Map, layerIds: string[], sourceIds: string[]): void {
-  for (let index = 0; index < layerIds.length; index += 1) {
-    const layerId = layerIds[index];
-    const sourceId = sourceIds[index];
-    if (!layerId || !sourceId) {
-      continue;
+  for (const layerId of layerIds) {
+    if (layerId && map.getLayer(layerId)) {
+      map.removeLayer(layerId);
     }
-    removeManifestLayer(map, layerId, sourceId);
+  }
+  for (const sourceId of sourceIds) {
+    if (sourceId && map.getSource(sourceId)) {
+      map.removeSource(sourceId);
+    }
   }
 }
 
