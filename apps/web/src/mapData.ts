@@ -57,11 +57,21 @@ export type SourceLayerManifest = GeoJsonLayerManifest | ImageLayerManifest | Ra
 
 export type LayerManifest = SourceLayerManifest | VectorStyleLayerManifest;
 
+export type SyntheticTerrainManifest = {
+  type: 'synthetic-plane';
+  windowSizeM: number;
+  cellSizeM: number;
+  baseElevationM: number;
+  slopeXM: number;
+  slopeYM: number;
+};
+
 export type CatchmentManifest = {
   id: string;
   name: LocalizedText;
   bounds: [[number, number], [number, number]];
   layers: LayerManifest[];
+  terrain?: SyntheticTerrainManifest;
 };
 
 export type SubcatchmentDetails = {

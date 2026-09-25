@@ -27,6 +27,14 @@ const manifest = {
     [valleyBounds.west, valleyBounds.south],
     [valleyBounds.east, valleyBounds.north],
   ],
+  terrain: {
+    type: 'synthetic-plane',
+    windowSizeM: 400,
+    cellSizeM: 2,
+    baseElevationM: 430,
+    slopeXM: 0,
+    slopeYM: -0.03,
+  },
   layers: [
     {
       id: 'hillshade',

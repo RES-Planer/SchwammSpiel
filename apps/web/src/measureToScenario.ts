@@ -89,6 +89,11 @@ function readNumber(value: string | number | boolean | undefined, fallback: numb
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function readOptionalNumber(value: string | number | boolean | undefined): number | null {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function readFlowSegmentType(value: string | number | boolean | undefined): Exclude<FlowSegmentType, 'trapezoid'> {
   switch (value) {
     case 'sheet':
@@ -225,10 +230,19 @@ function toScenarioMeasure(
 ): ScenarioMeasure | null {
   const targetSubcatchment = catchment.subcatchments.find((entry) => entry.id === targetSubcatchmentId);
   const targetMeasureArea = targetSubcatchment?.measureAreas.find((entry) => entry.id === targetMeasureAreaId);
-  const areaShare = targetSubcatchment ? measureAreaShare(summary.areaHa, targetSubcatchment.areaHa) : 0.15;
+  const localAreaShare = readOptionalNumber(measure.params.localAreaShare);
+  const areaShare =
+    localAreaShare !== null && localAreaShare > 0
+      ? Math.min(0.95, Math.max(0.05, localAreaShare))
+      : targetSubcatchment
+        ? measureAreaShare(summary.areaHa, targetSubcatchment.areaHa)
+        : 0.15;
   const baseFlowPath = targetMeasureArea?.flowPath ?? [];
+  const localChainageM = readOptionalNumber(measure.params.localFlowPathChainageM);
   const chainageM =
-    baseFlowPath.reduce((sum, segment) => sum + segment.lengthM, 0) * TODO_DATA_FLOWPATH_LOCATION_SHARE;
+    localChainageM !== null && localChainageM >= 0
+      ? localChainageM
+      : baseFlowPath.reduce((sum, segment) => sum + segment.lengthM, 0) * TODO_DATA_FLOWPATH_LOCATION_SHARE;
 
   switch (measure.kind) {
     case 'landUseChange': {
