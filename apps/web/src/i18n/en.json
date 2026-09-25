@@ -12,6 +12,7 @@
   "map.legend.empty": "No layer is currently visible.",
   "map.loading": "Loading catchment data …",
   "map.loadError": "Catchment data could not be loaded.",
+  "map.layerLoadError": "Layer could not be loaded.",
   "map.details.title": "Subcatchment",
   "map.details.empty": "Tap or click a subcatchment to inspect its details.",
   "map.details.name": "Name",

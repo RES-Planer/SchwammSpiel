@@ -17,35 +17,6 @@
   ],
   "layers": [
     {
-      "id": "basemap-topplusopen",
-      "name": {
-        "de": "Basiskarte TopPlusOpen (BKG)",
-        "cs": "Základní mapa TopPlusOpen (BKG)",
-        "en": "TopPlusOpen base map (BKG)"
-      },
-      "type": "raster",
-      "layerType": "raster",
-      "tiles": [
-        "https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web_grau/default/WEBMERCATOR/{z}/{y}/{x}.png"
-      ],
-      "tileSize": 256,
-      "visibleByDefault": true,
-      "maxzoom": 18,
-      "attribution": "© GeoBasis-DE / BKG (2026), Datenlizenz Deutschland – Namensnennung – Version 2.0"
-    },
-    {
-      "id": "basemap-openfreemap",
-      "name": {
-        "de": "Basiskarte OpenFreeMap",
-        "cs": "Základní mapa OpenFreeMap",
-        "en": "OpenFreeMap base map"
-      },
-      "type": "vector-style",
-      "url": "https://tiles.openfreemap.org/styles/liberty",
-      "visibleByDefault": false,
-      "attribution": "OpenFreeMap © OpenMapTiles, Daten © OpenStreetMap-Mitwirkende"
-    },
-    {
       "id": "hillshade",
       "name": {
         "de": "Schummerung",
@@ -54,7 +25,7 @@
       },
       "type": "image",
       "layerType": "raster",
-      "path": "hillshade.svg",
+      "path": "hillshade.png",
       "visibleByDefault": true,
       "attribution": "Demo-Daten",
       "coordinates": [

@@ -1,6 +1,7 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { deflateSync } from 'node:zlib';
 
 type FeatureCollection = GeoJSON.FeatureCollection;
 
@@ -37,7 +38,7 @@ const manifest = {
       },
       type: 'image',
       layerType: 'raster',
-      path: 'hillshade.svg',
+      path: 'hillshade.png',
       visibleByDefault: true,
       attribution: 'Demo-Daten',
       coordinates: [
@@ -276,30 +277,8 @@ const parcels: FeatureCollection = {
   ],
 };
 
-const hillshadeSvg = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" preserveAspectRatio="none">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f8fafc" />
-      <stop offset="45%" stop-color="#dbeafe" />
-      <stop offset="100%" stop-color="#d1d5db" />
-    </linearGradient>
-    <linearGradient id="valley" x1="0.1" y1="0" x2="0.9" y2="1">
-      <stop offset="0%" stop-color="#94a3b8" stop-opacity="0.15" />
-      <stop offset="100%" stop-color="#0f172a" stop-opacity="0.35" />
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="900" fill="url(#bg)" />
-  <path d="M180 130 C360 170, 420 300, 570 360 S850 520, 1010 760" fill="none" stroke="url(#valley)" stroke-width="230" stroke-linecap="round" />
-  <g fill="none" stroke="#475569" stroke-opacity="0.35">
-    <path d="M120 210 C300 140, 480 210, 720 160 S990 180, 1110 110" stroke-width="6" />
-    <path d="M80 330 C250 270, 470 320, 700 270 S980 290, 1120 220" stroke-width="5" />
-    <path d="M50 460 C260 400, 480 430, 700 380 S950 390, 1130 320" stroke-width="4" />
-    <path d="M40 610 C270 540, 520 560, 760 510 S1000 520, 1160 450" stroke-width="4" />
-    <path d="M60 760 C280 700, 520 710, 790 670 S1010 660, 1170 610" stroke-width="5" />
-  </g>
-</svg>
-`.trim();
+const crcTable = createCrcTable();
+const hillshadePng = buildHillshadePng(480, 360);
 
 mkdirSync(outputDir, { recursive: true });
 writeJson('manifest.json', manifest);
@@ -308,7 +287,8 @@ writeJson('flow_paths.geojson', flowPaths);
 writeJson('sinks.geojson', sinks);
 writeJson('cn_zones.geojson', cnZones);
 writeJson('parcels.geojson', parcels);
-writeFileSync(resolve(outputDir, 'hillshade.svg'), hillshadeSvg.concat('\n'));
+rmSync(resolve(outputDir, 'hillshade.svg'), { force: true });
+writeFileSync(resolve(outputDir, 'hillshade.png'), hillshadePng);
 
 function writeJson(filename: string, content: unknown): void {
   writeFileSync(resolve(outputDir, filename), `${JSON.stringify(content, null, 2)}\n`);
@@ -376,4 +356,85 @@ function rectangleOutline(id: string, west: number, south: number, width: number
       ],
     },
   };
+}
+
+function buildHillshadePng(width: number, height: number): Buffer {
+  const pixels = Buffer.alloc(width * height * 4);
+  for (let y = 0; y < height; y += 1) {
+    const yNorm = y / Math.max(1, height - 1);
+    const valleyCenter = 0.2 + 0.62 * yNorm;
+    for (let x = 0; x < width; x += 1) {
+      const xNorm = x / Math.max(1, width - 1);
+      const valley = Math.exp(-Math.pow((xNorm - valleyCenter) * 5.2, 2));
+      const ridges = 0.06 * Math.sin((xNorm * 11 + yNorm * 2.5) * Math.PI);
+      const northLight = 0.26 * (1 - yNorm);
+      const shade = Math.max(0, Math.min(1, 0.22 + northLight + ridges + valley * 0.38));
+      const red = clampColor(239 - shade * 92);
+      const green = clampColor(246 - shade * 118);
+      const blue = clampColor(255 - shade * 136);
+      const offset = (y * width + x) * 4;
+      pixels[offset] = red;
+      pixels[offset + 1] = green;
+      pixels[offset + 2] = blue;
+      pixels[offset + 3] = 255;
+    }
+  }
+
+  return encodePng(width, height, pixels);
+}
+
+function encodePng(width: number, height: number, pixels: Buffer): Buffer {
+  const raw = Buffer.alloc(height * (1 + width * 4));
+  for (let y = 0; y < height; y += 1) {
+    const rowStart = y * (1 + width * 4);
+    raw[rowStart] = 0;
+    pixels.copy(raw, rowStart + 1, y * width * 4, (y + 1) * width * 4);
+  }
+
+  const header = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+
+  return Buffer.concat([
+    header,
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const typeBuffer = Buffer.from(type, 'ascii');
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length, 0);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])), 0);
+  return Buffer.concat([length, typeBuffer, data, crc]);
+}
+
+function createCrcTable(): Uint32Array {
+  const table = new Uint32Array(256);
+  for (let index = 0; index < table.length; index += 1) {
+    let value = index;
+    for (let bit = 0; bit < 8; bit += 1) {
+      value = (value & 1) === 1 ? 0xedb88320 ^ (value >>> 1) : value >>> 1;
+    }
+    table[index] = value >>> 0;
+  }
+  return table;
+}
+
+function crc32(buffer: Buffer): number {
+  let value = 0xffffffff;
+  for (const byte of buffer) {
+    value = crcTable[(value ^ byte) & 0xff] ^ (value >>> 8);
+  }
+  return (value ^ 0xffffffff) >>> 0;
+}
+
+function clampColor(value: number): number {
+  return Math.max(0, Math.min(255, Math.round(value)));
 }

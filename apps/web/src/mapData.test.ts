@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -10,6 +12,17 @@ import {
   resolveCatchmentId,
   type CatchmentManifest,
 } from './mapData';
+
+function listManifestPaths(directoryUrl: URL): string[] {
+  const entries = readdirSync(directoryUrl, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const entryUrl = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, directoryUrl);
+    if (entry.isDirectory()) {
+      return listManifestPaths(entryUrl);
+    }
+    return entry.name === 'manifest.json' ? [fileURLToPath(entryUrl)] : [];
+  });
+}
 
 describe('map data helpers', () => {
   test('resolves the requested Gebiet from the query string', () => {
@@ -130,5 +143,19 @@ describe('map data helpers', () => {
         { labelKey: 'map.landuse.arable', valuePct: 25 },
       ],
     });
+  });
+
+  test('uses PNG or JPG assets for every manifest image layer', () => {
+    const manifestPaths = listManifestPaths(new URL('../public/data/', import.meta.url));
+    expect(manifestPaths.length).toBeGreaterThan(0);
+
+    for (const manifestPath of manifestPaths) {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as CatchmentManifest;
+      for (const layer of manifest.layers) {
+        if (layer.type === 'image') {
+          expect(layer.path, `${manifest.id}/${layer.id}`).toMatch(/\.(png|jpg)$/i);
+        }
+      }
+    }
   });
 });

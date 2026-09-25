@@ -7,11 +7,13 @@
   "scripts": {
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
+    "test:e2e": "playwright test",
     "build": "pnpm -r build",
     "dev": "pnpm --filter @schwammspiel/web dev",
     "calibrate": "tsx ./tools/calibrate.ts"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@types/node": "^24.5.2",
     "@typescript-eslint/eslint-plugin": "^8.44.0",
     "@typescript-eslint/parser": "^8.44.0",
