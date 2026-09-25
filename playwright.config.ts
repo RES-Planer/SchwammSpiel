@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: false,
   webServer: {
     command:
-      'export PATH="$HOME/.local/share/pnpm:$PATH" && VITE_E2E=true pnpm --filter @schwammspiel/web build && VITE_E2E=true pnpm --filter @schwammspiel/web preview --host 127.0.0.1 --port 4173',
+      'VITE_E2E=true corepack pnpm --filter @schwammspiel/web build && VITE_E2E=true corepack pnpm --filter @schwammspiel/web preview --host 127.0.0.1 --port 4173',
     port: 4173,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
