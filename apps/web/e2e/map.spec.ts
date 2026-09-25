@@ -4,8 +4,8 @@ test('renders production manifest layers without map load errors', async ({ page
   await page.goto('/SchwammSpiel/', { waitUntil: 'domcontentloaded' });
 
   await page.waitForFunction(() => {
-    const map = (window as Window & { __map?: { loaded(): boolean } }).__map;
-    return Boolean(map?.loaded());
+    const map = (window as Window & { __map?: { getLayer(id: string): unknown } }).__map;
+    return Boolean(map?.getLayer('catchment-layer-subcatchments'));
   });
 
   const state = await page.evaluate(async () => {

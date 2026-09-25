@@ -22,6 +22,7 @@ import {
 import { geodesicLengthM, geodesicPolygonAreaM2, type LngLat } from './geodesy';
 import { HydrographChart } from './HydrographChart';
 import { locales, type Locale, t } from './i18n';
+import { resolveSourceIdFromMapError } from './layerLoadErrors';
 import { MeasureCard } from './MeasureCard';
 import { defaultParams, MeasureForm } from './MeasureForm';
 import { extractCnZones, inferCnZoneDefaults } from './cnZones';
@@ -255,9 +256,7 @@ export function App() {
 
     const handleLoad = () => setMapReady(true);
     const handleError = (event: maplibregl.ErrorEvent) => {
-      const sourceId = typeof (event as unknown as { sourceId?: unknown }).sourceId === 'string'
-        ? (event as unknown as { sourceId: string }).sourceId
-        : undefined;
+      const sourceId = resolveSourceIdFromMapError(event);
 
       if (shouldExposeMapForTesting) {
         testWindow.__mapErrors ??= [];
