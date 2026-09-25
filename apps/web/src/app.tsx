@@ -257,30 +257,29 @@ export function App() {
     const handleLoad = () => setMapReady(true);
     const handleError = (event: maplibregl.ErrorEvent) => {
       const sourceId = resolveSourceIdFromMapError(event);
+      const failedLayer =
+        sourceId === undefined
+          ? undefined
+          : manifestRef.current?.layers.find((layer) => isSourceLayer(layer) && sourceIdFor(layer.id) === sourceId);
 
-      if (shouldExposeMapForTesting) {
+      if (shouldExposeMapForTesting && failedLayer) {
         testWindow.__mapErrors ??= [];
         testWindow.__mapErrors.push({
           message: event.error.message,
-          ...(sourceId ? { sourceId } : {}),
+          sourceId,
         });
       }
-
-      if (!sourceId) {
-        return;
-      }
-
-      const failedLayer = manifestRef.current?.layers.find(
-        (layer) => isSourceLayer(layer) && sourceIdFor(layer.id) === sourceId,
-      );
       if (!failedLayer) {
         return;
       }
 
       const failedLayerId = layerIdFor(failedLayer.id);
-      removeManifestLayer(map, failedLayerId, sourceId);
+      const failedSourceId = sourceIdFor(failedLayer.id);
+      removeManifestLayer(map, failedLayerId, failedSourceId);
       addedLayerIdsRef.current = addedLayerIdsRef.current.filter((layerId) => layerId !== failedLayerId);
-      addedSourceIdsRef.current = addedSourceIdsRef.current.filter((currentSourceId) => currentSourceId !== sourceId);
+      addedSourceIdsRef.current = addedSourceIdsRef.current.filter(
+        (currentSourceId) => currentSourceId !== failedSourceId,
+      );
       setLayerVisibility((current) =>
         current[failedLayer.id] === false
           ? current

@@ -22,11 +22,11 @@ test('renders production manifest layers without map load errors', async ({ page
 
     const manifest = (await fetch('/SchwammSpiel/data/demo/manifest.json').then(async (response) => {
       return (await response.json()) as {
-        layers: Array<{ id: string; layerType?: string }>;
+        layers: Array<{ id: string; type: string; layerType?: string }>;
       };
-    })) as { layers: Array<{ id: string; layerType?: string }> };
+    })) as { layers: Array<{ id: string; type: string; layerType?: string }> };
     const manifestLayerIds = manifest.layers
-      .filter((layer) => typeof layer.layerType === 'string')
+      .filter((layer) => layer.type !== 'vector-style' && typeof layer.layerType === 'string')
       .map((layer) => layer.id);
     const missingLayerIds = manifestLayerIds.filter((layerId) => !map.getLayer(`catchment-layer-${layerId}`));
     const subcatchmentGeoJson = (await fetch('/SchwammSpiel/data/demo/subcatchments.geojson').then(async (response) => {

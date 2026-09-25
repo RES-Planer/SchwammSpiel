@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
@@ -154,6 +155,10 @@ describe('map data helpers', () => {
       for (const layer of manifest.layers) {
         if (layer.type === 'image') {
           expect(layer.path, `${manifest.id}/${layer.id}`).toMatch(/\.(png|jpg)$/i);
+          expect(
+            existsSync(resolve(dirname(manifestPath), layer.path)),
+            `${manifest.id}/${layer.id} should reference an existing image asset`,
+          ).toBe(true);
         }
       }
     }
