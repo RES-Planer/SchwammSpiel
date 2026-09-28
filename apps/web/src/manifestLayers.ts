@@ -14,12 +14,6 @@ export function buildManifestSource(
     return {
       type: 'geojson',
       data: buildDataUrl(baseUrl, catchmentId, layer.path),
-      ...(layer.inspectable
-        ? {
-            buffer: 0,
-            maxzoom: 0,
-          }
-        : {}),
       ...(attribution ? { attribution } : {}),
     };
   }

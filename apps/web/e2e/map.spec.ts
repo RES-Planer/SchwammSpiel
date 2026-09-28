@@ -37,9 +37,22 @@ test('renders production manifest layers without map load errors', async ({ page
         project(lngLat: [number, number]): { x: number; y: number };
         queryRenderedFeatures(options?: { layers?: string[] }): Array<{ properties?: unknown }>;
         querySourceFeatures(sourceId: string): Array<{ properties?: unknown }>;
+        addLayer(layer: {
+          id: string;
+          type: 'fill';
+          source: string;
+          paint: Record<string, unknown>;
+        }): void;
+        addSource(sourceId: string, source: {
+          type: 'geojson';
+          data: string;
+          buffer: number;
+          maxzoom: number;
+        }): void;
+        removeLayer(id: string): void;
+        removeSource(id: string): void;
         setBearing(bearing: number): void;
         setPitch(pitch: number): void;
-        setZoom(zoom: number): void;
         triggerRepaint(): void;
       };
       __mapErrors?: Array<{ message: string; sourceId?: string }>;
@@ -106,13 +119,12 @@ test('renders production manifest layers without map load errors', async ({ page
       { minLng: Number.POSITIVE_INFINITY, maxLng: Number.NEGATIVE_INFINITY, minLat: Number.POSITIVE_INFINITY, maxLat: Number.NEGATIVE_INFINITY },
     );
     const renderedSubcatchments = map.queryRenderedFeatures({ layers: ['catchment-layer-subcatchments'] });
-    const sourceSubcatchments = map.querySourceFeatures('catchment-source-subcatchments');
     const probeLngLat: [number, number] = [(bbox.minLng + bbox.maxLng) / 2, (bbox.minLat + bbox.maxLat) / 2];
-    const probePoint = map.project(probeLngLat);
     map.setPitch(0);
     map.setBearing(0);
     map.triggerRepaint();
     await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    const probePoint = map.project(probeLngLat);
     const canvas = map.getCanvas();
     const gl =
       canvas.getContext('webgl', { preserveDrawingBuffer: true }) ??
@@ -130,6 +142,35 @@ test('renders production manifest layers without map load errors', async ({ page
       gl.UNSIGNED_BYTE,
       pixel,
     );
+    map.removeLayer('catchment-layer-subcatchments');
+    map.removeSource('catchment-source-subcatchments');
+    map.addSource('catchment-source-subcatchments', {
+      type: 'geojson',
+      data: '/SchwammSpiel/data/demo/subcatchments.geojson',
+      buffer: 0,
+      maxzoom: 0,
+    });
+    map.addLayer({
+      id: 'catchment-layer-subcatchments',
+      type: 'fill',
+      source: 'catchment-source-subcatchments',
+      paint: {
+        'fill-color': '#60a5fa',
+        'fill-opacity': 0.28,
+        'fill-outline-color': '#1d4ed8',
+      },
+    });
+    await new Promise<void>((resolve, reject) => {
+      const timeoutId = window.setTimeout(
+        () => reject(new Error('Timed out waiting for re-added subcatchment source idle')),
+        15_000,
+      );
+      map.once('idle', () => {
+        window.clearTimeout(timeoutId);
+        resolve();
+      });
+    });
+    const sourceSubcatchments = map.querySourceFeatures('catchment-source-subcatchments');
 
     return {
       areTilesLoaded: map.areTilesLoaded(),
