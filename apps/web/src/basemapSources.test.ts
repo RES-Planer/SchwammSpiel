@@ -29,14 +29,41 @@ function collectFiles(directoryPath: string, predicate: (path: string) => boolea
 }
 
 describe('basemap source configuration', () => {
-  test('keeps the demo manifest self-contained for offline smoke tests', () => {
+  test('keeps the historical demo basemap entries in the manifest', () => {
     const manifest = JSON.parse(readFileSync(demoManifestPath, 'utf8')) as { layers: ManifestLayer[] };
-    const externalBasemapLayers = manifest.layers.filter(
-      (layer) => layer.type === 'vector-style' || layer.tiles?.some((tile) => tile.startsWith('http')),
-    );
+    const topPlusOpen = manifest.layers.find((layer) => layer.id === 'basemap-topplusopen');
+    const openFreeMap = manifest.layers.find((layer) => layer.id === 'basemap-openfreemap');
     const hillshade = manifest.layers.find((layer) => layer.id === 'hillshade');
 
-    expect(externalBasemapLayers).toEqual([]);
+    expect(topPlusOpen).toEqual({
+      id: 'basemap-topplusopen',
+      name: {
+        de: 'Basiskarte TopPlusOpen (BKG)',
+        cs: 'Základní mapa TopPlusOpen (BKG)',
+        en: 'TopPlusOpen base map (BKG)',
+      },
+      type: 'raster',
+      layerType: 'raster',
+      tiles: [
+        'https://sgx.geodatenzentrum.de/wmts_topplus_open/tile/1.0.0/web_grau/default/WEBMERCATOR/{z}/{y}/{x}.png',
+      ],
+      tileSize: 256,
+      visibleByDefault: true,
+      maxzoom: 18,
+      attribution: '© GeoBasis-DE / BKG (2026), Datenlizenz Deutschland – Namensnennung – Version 2.0',
+    });
+    expect(openFreeMap).toEqual({
+      id: 'basemap-openfreemap',
+      name: {
+        de: 'Basiskarte OpenFreeMap',
+        cs: 'Základní mapa OpenFreeMap',
+        en: 'OpenFreeMap base map',
+      },
+      type: 'vector-style',
+      url: 'https://tiles.openfreemap.org/styles/liberty',
+      visibleByDefault: false,
+      attribution: 'OpenFreeMap © OpenMapTiles, Daten © OpenStreetMap-Mitwirkende',
+    });
     expect(hillshade).toMatchObject({
       type: 'image',
       path: 'hillshade.png',
