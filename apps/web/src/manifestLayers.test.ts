@@ -71,6 +71,24 @@ describe('manifest layer builders', () => {
     });
   });
 
+  test('uses a single unbuffered tile for inspectable geojson sources', () => {
+    const layer: SourceLayerManifest = {
+      id: 'subcatchments',
+      name: { de: 'Teilgebiete' },
+      type: 'geojson',
+      layerType: 'fill',
+      path: 'subcatchments.geojson',
+      inspectable: true,
+    };
+
+    expect(buildManifestSource(layer, '/SchwammSpiel/', 'demo', 'de')).toEqual({
+      type: 'geojson',
+      data: '/SchwammSpiel/data/demo/subcatchments.geojson',
+      buffer: 0,
+      maxzoom: 0,
+    });
+  });
+
   test('builds map layer definitions with default visibility and custom style', () => {
     const layer: SourceLayerManifest = {
       id: 'flow-paths',
